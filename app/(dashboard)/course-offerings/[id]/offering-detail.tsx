@@ -1,11 +1,13 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Users, UserCog, CalendarCheck } from "lucide-react"
+import { Users, UserCog, CalendarCheck, Upload } from "lucide-react"
 import { type CourseOffering } from "@/lib/mock/course-offerings"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Table,
   TableBody,
@@ -22,6 +24,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { BulkEnrollModal } from "@/components/enrollment/bulk-enroll-modal"
 
 const statusVariant: Record<string, "default" | "secondary" | "destructive"> = {
   Completed: "default",
@@ -31,6 +34,7 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive"> = {
 
 export function OfferingDetail({ offering }: { offering: CourseOffering }) {
   const router = useRouter()
+  const [bulkEnrollOpen, setBulkEnrollOpen] = useState(false)
 
   if (!offering) {
     return (
@@ -78,20 +82,26 @@ export function OfferingDetail({ offering }: { offering: CourseOffering }) {
       </Card>
 
       <Tabs defaultValue="students">
-        <TabsList>
-          <TabsTrigger value="students">
-            <Users className="mr-2 h-4 w-4" />
-            Enrolled Students ({offering.students.length})
-          </TabsTrigger>
-          <TabsTrigger value="staff">
-            <UserCog className="mr-2 h-4 w-4" />
-            Staff ({offering.staff.length})
-          </TabsTrigger>
-          <TabsTrigger value="sessions">
-            <CalendarCheck className="mr-2 h-4 w-4" />
-            Sessions ({offering.sessions.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="students">
+              <Users className="mr-2 h-4 w-4" />
+              Enrolled Students ({offering.students.length})
+            </TabsTrigger>
+            <TabsTrigger value="staff">
+              <UserCog className="mr-2 h-4 w-4" />
+              Staff ({offering.staff.length})
+            </TabsTrigger>
+            <TabsTrigger value="sessions">
+              <CalendarCheck className="mr-2 h-4 w-4" />
+              Sessions ({offering.sessions.length})
+            </TabsTrigger>
+          </TabsList>
+          <Button size="sm" onClick={() => setBulkEnrollOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import from Excel
+          </Button>
+        </div>
 
         <TabsContent value="students" className="mt-4">
           <div className="rounded-md border">
@@ -100,7 +110,6 @@ export function OfferingDetail({ offering }: { offering: CourseOffering }) {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Enrolled At</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -109,12 +118,11 @@ export function OfferingDetail({ offering }: { offering: CourseOffering }) {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.name}</TableCell>
                       <TableCell>{s.email}</TableCell>
-                      <TableCell>{s.enrolledAt}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-20 text-center text-muted-foreground">
+                    <TableCell colSpan={2} className="h-20 text-center text-muted-foreground">
                       No enrolled students.
                     </TableCell>
                   </TableRow>
@@ -190,6 +198,12 @@ export function OfferingDetail({ offering }: { offering: CourseOffering }) {
           </div>
         </TabsContent>
       </Tabs>
+
+      <BulkEnrollModal
+        open={bulkEnrollOpen}
+        onOpenChange={setBulkEnrollOpen}
+        courseOfferingId={offering.id}
+      />
     </div>
   )
 }
