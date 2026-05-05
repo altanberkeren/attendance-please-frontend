@@ -1,15 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { useTheme } from "next-themes"
-import { Moon, Sun, User, Settings, LogOut, ChevronDown } from "lucide-react"
+import { ChevronDown, Loader2, LogOut, Moon, Settings, Sun, User } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -29,20 +24,19 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { useAuth } from "@/hooks/use-auth"
+import { useTheme } from "@/hooks/use-theme"
 
-// Map pathnames → breadcrumb labels
 const ROUTE_LABELS: Record<string, string> = {
-  "/overview":         "Overview",
-  "/courses":          "Courses",
-  "/terms":            "Terms",
+  "/overview": "Overview",
+  "/courses": "Courses",
+  "/terms": "Terms",
   "/course-offerings": "Course Offerings",
-  "/settings":         "Settings",
+  "/settings": "Settings",
 }
 
 function useBreadcrumbs() {
   const pathname = usePathname()
-
-  // e.g. /course-offerings/123  →  ["course-offerings", "123"]
   const segments = pathname.split("/").filter(Boolean)
 
   if (segments.length === 0) return []
@@ -50,10 +44,10 @@ function useBreadcrumbs() {
   const crumbs: { label: string; href: string; isLast: boolean }[] = []
   let running = ""
 
-  segments.forEach((seg, i) => {
+  segments.forEach((seg, index) => {
     running += `/${seg}`
-    const isLast = i === segments.length - 1
-    const label = ROUTE_LABELS[running] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    const isLast = index === segments.length - 1
+    const label = ROUTE_LABELS[running] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
     crumbs.push({ label, href: running, isLast })
   })
 
@@ -61,13 +55,13 @@ function useBreadcrumbs() {
 }
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   return (
     <Button
       variant="ghost"
       size="icon"
       className="h-8 w-8"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
       <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
       <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -78,10 +72,10 @@ function ThemeToggle() {
 
 function UserMenu() {
   const router = useRouter()
+  const { user, signOut } = useAuth()
 
-  function handleSignOut() {
-    localStorage.removeItem("isLoggedIn")
-    router.replace("/login")
+  async function handleSignOut() {
+    await signOut()
   }
 
   return (
@@ -90,18 +84,18 @@ function UserMenu() {
         <Button variant="ghost" className="h-8 gap-2 px-2">
           <Avatar className="h-6 w-6">
             <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-              DK
+              {user?.initials ?? "U"}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden sm:block text-sm font-medium">Dogukan K.</span>
+          <span className="hidden sm:block text-sm font-medium">{user?.displayName ?? "User"}</span>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold">Dogukan K.</span>
-            <span className="text-xs text-muted-foreground">dogukan7400@gmail.com</span>
+            <span className="text-sm font-semibold">{user?.displayName ?? "User"}</span>
+            <span className="text-xs text-muted-foreground break-all">{user?.email ?? ""}</span>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -130,9 +124,9 @@ function DashboardBreadcrumb() {
   return (
     <Breadcrumb>
       <BreadcrumbList>
-        {crumbs.map((crumb, i) => (
+        {crumbs.map((crumb, index) => (
           <span key={crumb.href} className="flex items-center gap-1.5">
-            {i > 0 && <BreadcrumbSeparator />}
+            {index > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem>
               {crumb.isLast ? (
                 <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
@@ -149,23 +143,33 @@ function DashboardBreadcrumb() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const [ready, setReady] = useState(false)
+  const { isAuthenticated, isReady } = useAuth()
 
   useEffect(() => {
-    if (localStorage.getItem("isLoggedIn") !== "true") {
+    if (isReady && !isAuthenticated) {
       router.replace("/login")
-    } else {
-      setReady(true)
     }
-  }, [router])
+  }, [isAuthenticated, isReady, router])
 
-  if (!ready) return null
+  if (!isReady) {
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Validating session...
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
+  }
 
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        {/* Header */}
         <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background/95 backdrop-blur px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4" />
@@ -176,8 +180,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <UserMenu />
           </div>
         </header>
-
-        {/* Page content */}
         <main className="flex-1 p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
