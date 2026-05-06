@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   BookOpen,
@@ -9,6 +9,9 @@ import {
   Layers,
   Settings,
   GraduationCap,
+  LogOut,
+  User,
+  ChevronUp,
 } from "lucide-react"
 import {
   Sidebar,
@@ -21,8 +24,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/hooks/use-auth"
+import { useProfilePhoto } from "@/hooks/use-profile-photo"
 
 const NAV_GROUPS = [
   {
@@ -49,6 +62,13 @@ const NAV_GROUPS = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user, signOut } = useAuth()
+  const { photoUrl } = useProfilePhoto()
+
+  async function handleSignOut() {
+    await signOut()
+  }
 
   return (
     <Sidebar>
@@ -98,17 +118,55 @@ export function AppSidebar() {
       {/* ── User footer ── */}
       <Separator className="bg-sidebar-border" />
       <SidebarFooter className="p-3">
-        <div className="flex items-center gap-2.5 px-1">
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
-              DK
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-sm font-medium text-sidebar-foreground truncate">Dogukan K.</span>
-            <span className="text-[10px] text-sidebar-foreground/50 truncate">Administrator</span>
-          </div>
-        </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <Avatar className="h-8 w-8">
+                    {photoUrl && <AvatarImage src={photoUrl} alt={user?.displayName ?? "User"} />}
+                    <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
+                      {user?.initials ?? "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{user?.displayName ?? "User"}</span>
+                    <span className="truncate text-xs text-muted-foreground">{user?.email ?? ""}</span>
+                  </div>
+                  <ChevronUp className="ml-auto h-4 w-4" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56"
+              >
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold">{user?.displayName ?? "User"}</span>
+                    <span className="text-xs text-muted-foreground break-all">{user?.email ?? ""}</span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   )

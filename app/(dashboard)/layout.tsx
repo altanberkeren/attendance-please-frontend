@@ -2,20 +2,11 @@
 
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { ChevronDown, Loader2, LogOut, Moon, Settings, Sun, User } from "lucide-react"
+import { Loader2, Moon, Sun } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -67,53 +58,6 @@ function ThemeToggle() {
       <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
       <span className="sr-only">Toggle theme</span>
     </Button>
-  )
-}
-
-function UserMenu() {
-  const router = useRouter()
-  const { user, signOut } = useAuth()
-
-  async function handleSignOut() {
-    await signOut()
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 gap-2 px-2">
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-              {user?.initials ?? "U"}
-            </AvatarFallback>
-          </Avatar>
-          <span className="hidden sm:block text-sm font-medium">{user?.displayName ?? "User"}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold">{user?.displayName ?? "User"}</span>
-            <span className="text-xs text-muted-foreground break-all">{user?.email ?? ""}</span>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/settings")}>
-          <User className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/settings")}>
-          <Settings className="mr-2 h-4 w-4" />
-          Settings
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 
@@ -176,8 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DashboardBreadcrumb />
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
-            <Separator orientation="vertical" className="h-4 mx-1" />
-            <UserMenu />
+
           </div>
         </header>
         <main className="flex-1 p-6">{children}</main>

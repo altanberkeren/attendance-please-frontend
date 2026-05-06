@@ -16,7 +16,7 @@ const redirectUri = process.env.NEXT_PUBLIC_AZURE_REDIRECT_URI ?? "http://localh
 const postLogoutRedirectUri = process.env.NEXT_PUBLIC_AZURE_POST_LOGOUT_REDIRECT_URI ?? "http://localhost:5173/login"
 
 export const loginRequest = {
-  scopes: [apiScope],
+  scopes: [apiScope, "User.Read"],
 }
 
 const msalConfig: Configuration = {
