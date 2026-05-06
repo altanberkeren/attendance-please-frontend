@@ -74,7 +74,7 @@ export function AppSidebar() {
     <Sidebar>
       {/* ── Brand header ── */}
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2.5">
+        <Link href="/overview" className="flex items-center gap-2.5">
           <Image
             src="/ius-logo-medium.png"
             alt="IUS Logo"
@@ -88,7 +88,7 @@ export function AppSidebar() {
               Spring 2025
             </span>
           </div>
-        </div>
+        </Link>
       </SidebarHeader>
 
       <Separator className="bg-sidebar-border" />
