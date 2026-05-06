@@ -41,32 +41,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/AttendanceDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/AttendanceDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/AttendanceDto"
                 }
               }
             }
@@ -333,24 +318,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResult"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegisterResult"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
@@ -382,24 +350,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResult"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResult"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
@@ -435,32 +386,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseOfferingDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseOfferingDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseOfferingDto"
                 }
               }
             }
@@ -546,7 +482,24 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingDto"
+                }
+              }
+            }
           }
         }
       },
@@ -649,32 +602,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
                 }
               }
             }
@@ -790,32 +728,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/CourseDto"
                 }
               }
             }
@@ -901,7 +824,24 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDto"
+                }
+              }
+            }
           }
         }
       },
@@ -1004,32 +944,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/EnrollmentDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/EnrollmentDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/EnrollmentDto"
                 }
               }
             }
@@ -1141,7 +1066,24 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentDto"
+                }
+              }
+            }
           }
         }
       }
@@ -1246,32 +1188,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/ModuleDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/ModuleDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/ModuleDto"
                 }
               }
             }
@@ -1371,7 +1298,24 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleDto"
+                }
+              }
+            }
           }
         }
       },
@@ -1474,32 +1418,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/SectionDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/SectionDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/SectionDto"
                 }
               }
             }
@@ -1599,7 +1528,24 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionDto"
+                }
+              }
+            }
           }
         }
       },
@@ -1702,32 +1648,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/SessionDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/SessionDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/SessionDto"
                 }
               }
             }
@@ -1819,7 +1750,24 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
           }
         }
       }
@@ -1846,7 +1794,24 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
           }
         }
       }
@@ -1926,32 +1891,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/TermDto"
                 }
               },
               "application/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/TermDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "pattern": "^-?(?:0|[1-9]\\d*)$",
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "format": "int32"
+                  "$ref": "#/components/schemas/TermDto"
                 }
               }
             }
@@ -2037,7 +1987,24 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermDto"
+                }
+              }
+            }
           }
         }
       },
@@ -2467,7 +2434,8 @@
       "CreateCourseCommand": {
         "required": [
           "code",
-          "title"
+          "title",
+          "description"
         ],
         "type": "object",
         "properties": {
@@ -2476,6 +2444,12 @@
           },
           "title": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2562,22 +2536,22 @@
       },
       "CreateTermCommand": {
         "required": [
-          "code",
+          "name",
           "startDate",
           "endDate"
         ],
         "type": "object",
         "properties": {
-          "code": {
+          "name": {
             "type": "string"
           },
           "startDate": {
             "type": "string",
-            "format": "date"
+            "format": "date-time"
           },
           "endDate": {
             "type": "string",
-            "format": "date"
+            "format": "date-time"
           }
         }
       },
@@ -2683,31 +2657,6 @@
           },
           "password": {
             "type": "string"
-          }
-        }
-      },
-      "LoginResult": {
-        "required": [
-          "token",
-          "succeeded",
-          "errors"
-        ],
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "succeeded": {
-            "type": "boolean"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           }
         }
       },
@@ -2918,33 +2867,6 @@
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
-          }
-        }
-      },
-      "RegisterResult": {
-        "required": [
-          "userId",
-          "succeeded",
-          "errors"
-        ],
-        "type": "object",
-        "properties": {
-          "userId": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "succeeded": {
-            "type": "boolean"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
           }
         }
       },
@@ -3265,7 +3187,8 @@
         "required": [
           "id",
           "code",
-          "title"
+          "title",
+          "description"
         ],
         "type": "object",
         "properties": {
@@ -3282,6 +3205,12 @@
           },
           "title": {
             "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -3385,7 +3314,7 @@
       "UpdateTermCommand": {
         "required": [
           "id",
-          "code",
+          "name",
           "startDate",
           "endDate"
         ],
@@ -3399,16 +3328,16 @@
             ],
             "format": "int32"
           },
-          "code": {
+          "name": {
             "type": "string"
           },
           "startDate": {
             "type": "string",
-            "format": "date"
+            "format": "date-time"
           },
           "endDate": {
             "type": "string",
-            "format": "date"
+            "format": "date-time"
           }
         }
       },
@@ -3475,9 +3404,9 @@
     }
   },
   "security": [
-    { },
-    { },
-    { }
+    {},
+    {},
+    {}
   ],
   "tags": [
     {
