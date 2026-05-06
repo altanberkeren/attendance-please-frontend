@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Loader2, Moon, Sun } from "lucide-react"
+import Image from "next/image"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -98,9 +99,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isReady) {
     return (
       <div className="min-h-screen grid place-items-center">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Validating session...
+        <div className="flex flex-col items-center gap-3">
+          <Image
+            src="/ius-logo-medium.png"
+            alt="IUS Logo"
+            width={40}
+            height={40}
+            className="rounded"
+          />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Validating session...
+          </div>
         </div>
       </div>
     )

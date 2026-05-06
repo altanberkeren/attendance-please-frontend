@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -8,7 +9,6 @@ import {
   CalendarDays,
   Layers,
   Settings,
-  GraduationCap,
   LogOut,
   User,
   ChevronUp,
@@ -75,9 +75,13 @@ export function AppSidebar() {
       {/* ── Brand header ── */}
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2.5">
-          <div className="h-7 w-7 rounded-lg bg-sidebar-primary flex items-center justify-center shrink-0">
-            <GraduationCap className="h-4 w-4 text-sidebar-primary-foreground" />
-          </div>
+          <Image
+            src="/ius-logo-medium.png"
+            alt="IUS Logo"
+            width={32}
+            height={32}
+            className="shrink-0 rounded"
+          />
           <div className="flex flex-col leading-tight">
             <span className="font-bold text-sm text-sidebar-foreground">AttendanceApp</span>
             <span className="text-[10px] text-sidebar-foreground/50 font-medium tracking-wide uppercase">

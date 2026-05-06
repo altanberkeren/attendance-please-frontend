@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, GraduationCap, Loader2 } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -46,9 +47,13 @@ export default function LoginPage() {
         <div className="pointer-events-none absolute bottom-32 -right-8 h-40 w-40 rounded-full bg-white/10" />
 
         <div className="relative flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-            <GraduationCap className="h-5 w-5" />
-          </div>
+          <Image
+            src="/ius-logo-medium.png"
+            alt="IUS Logo"
+            width={36}
+            height={36}
+            className="rounded-lg"
+          />
           <span className="text-xl font-bold tracking-tight">AttendanceApp</span>
         </div>
 
@@ -96,7 +101,13 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-2 text-primary font-bold">
-            <GraduationCap className="h-5 w-5" />
+            <Image
+              src="/ius-logo-medium.png"
+              alt="IUS Logo"
+              width={24}
+              height={24}
+              className="rounded"
+            />
             AttendanceApp
           </div>
 
