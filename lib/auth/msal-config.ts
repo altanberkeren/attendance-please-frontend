@@ -53,12 +53,11 @@ msalInstance.addEventCallback((event) => {
   }
 })
 
-export const msalInitializationPromise = msalInstance.initialize().then(async () => {
-  const redirectResult = await msalInstance.handleRedirectPromise({
-    navigateToLoginRequestUrl: false,
-  })
-  setActiveAccountFromResult(redirectResult)
+export const msalInitializationPromise = msalInstance.initialize().then(() => {
+  // handleRedirectPromise() is handled by MsalProvider — do not call it here
+  // to avoid racing with MSAL React's internal redirect processing.
 
+  // Restore active account from sessionStorage cache (for returning sessions)
   const account = getPreferredAccount(msalInstance.getAllAccounts())
   if (account) {
     msalInstance.setActiveAccount(account)

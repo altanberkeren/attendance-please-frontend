@@ -7,10 +7,11 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { msalInitializationPromise, msalInstance, acquireApiAccessToken } from "@/lib/auth/msal-config"
 import { setAccessTokenProvider } from "@/lib/auth/token-provider"
 import { ThemeProvider } from "@/hooks/use-theme"
+import { AuthReadyGate } from "@/components/auth-ready-gate"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
-  const [authReady, setAuthReady] = useState(false)
+  const [msalInitDone, setMsalInitDone] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -18,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     setAccessTokenProvider(async () => acquireApiAccessToken())
 
     msalInitializationPromise.finally(() => {
-      if (mounted) setAuthReady(true)
+      if (mounted) setMsalInitDone(true)
     })
 
     return () => {
@@ -27,7 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  if (!authReady) {
+  if (!msalInitDone) {
     return null
   }
 
@@ -36,7 +37,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <TooltipProvider>
-            {children}
+            <AuthReadyGate>{children}</AuthReadyGate>
           </TooltipProvider>
         </ThemeProvider>
       </QueryClientProvider>

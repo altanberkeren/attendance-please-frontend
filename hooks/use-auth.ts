@@ -53,9 +53,11 @@ export function useAuth() {
     await instance.loginRedirect(loginRequest)
   }
 
-  async function signOut() {
-    await msalInitializationPromise
-    await instance.logoutRedirect()
+  function signOut() {
+    // Local logout only — clear MSAL cache and active account
+    // without ending the Microsoft session
+    instance.clearCache()
+    instance.setActiveAccount(null)
   }
 
   return {

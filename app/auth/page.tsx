@@ -17,7 +17,13 @@ export default function AuthCallbackPage() {
       return
     }
 
-    router.replace("/login")
+    // Give MSAL a moment to settle after the redirect, then fall back to login
+    // This prevents getting stuck on this page if the auth state never resolves
+    const timeout = setTimeout(() => {
+      router.replace("/login")
+    }, 3000)
+
+    return () => clearTimeout(timeout)
   }, [isAuthenticated, isReady, router])
 
   return (
