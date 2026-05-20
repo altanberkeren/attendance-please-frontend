@@ -1,0 +1,62 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  MODEL: ${{ vars.AI_MODEL || 'accounts/fireworks/models/minimax-m2p7' }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Generous cap so the agent has room to explore, but it can't run forever.
+    timeout-minutes: 15
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate PR diff
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git diff "origin/${{ github.base_ref }}...HEAD" > pr.diff
+          echo "Diff size: $(wc -c < pr.diff) bytes"
+
+      - name: Install Pi agent
+        run: curl -fsSL https://pi.dev/install.sh | sh
+
+      - name: Run AI review
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          {
+            echo "PR Title: $PR_TITLE"
+            echo "PR Author: @$PR_AUTHOR"
+            echo
+            cat scripts/review_prompt.md
+          } > prompt.txt
+
+          # Read-only toolset: agent can browse the repo but cannot execute,
+          # write, or shell out. Pi exits after --print.
+          # `stdbuf -oL` + `tee` streams Pi's output to the Actions log live
+          # while still capturing the full response into review.md.
+          stdbuf -oL pi --print \
+             --model "$MODEL" \
+             --api-key "$LLM_API_KEY" \
+             --tools read,grep,find,ls \
+             "$(cat prompt.txt)" 2>&1 | tee review.md
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body-file review.md
