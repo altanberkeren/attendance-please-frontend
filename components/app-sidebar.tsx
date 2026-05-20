@@ -12,6 +12,7 @@ import {
   LogOut,
   User,
   ChevronUp,
+  GraduationCap,
 } from "lucide-react"
 import {
   Sidebar,
@@ -38,6 +39,12 @@ import { useAuth } from "@/hooks/use-auth"
 import { useProfilePhoto } from "@/hooks/use-profile-photo"
 
 const NAV_GROUPS = [
+  {
+    label: "Student",
+    items: [
+      { title: "My Classes", href: "/my-classes", icon: GraduationCap },
+    ],
+  },
   {
     label: "Main",
     items: [
