@@ -1,0 +1,87 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  MODEL: ${{ vars.AI_MODEL || 'accounts/fireworks/models/minimax-m2p7' }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Generous cap so the agent has room to explore, but it can't run forever.
+    timeout-minutes: 15
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate PR diff
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          git diff "origin/${{ github.base_ref }}...HEAD" > pr.diff
+          echo "Diff size: $(wc -c < pr.diff) bytes"
+
+      - name: Install Pi agent
+        run: |
+          curl -fsSL https://pi.dev/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Pi sanity check
+        run: |
+          which pi || true
+          pi --version || true
+          pi --help | head -40 || true
+
+      - name: Run AI review
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          {
+            echo "PR Title: $PR_TITLE"
+            echo "PR Author: @$PR_AUTHOR"
+            echo
+            cat scripts/review_prompt.md
+          } > prompt.txt
+
+          # --mode json streams every event (text deltas, tool calls, file reads)
+          # line-by-line, so the Actions log shows progress as it happens.
+          # `tee` mirrors the JSONL stream into a file we parse afterwards.
+          set -o pipefail
+          # Full raw JSONL goes to file (used to extract the final answer below).
+          # Only completed/lifecycle events are streamed to the Actions log so we
+          # don't drown in thousands of streaming `message_update` deltas.
+          timeout --signal=TERM 600 pi --print --mode json \
+             --model "$MODEL" \
+             --api-key "$LLM_API_KEY" \
+             --tools read,grep,find,ls \
+             "$(cat prompt.txt)" \
+             | tee pi-events.jsonl \
+             | jq -c --unbuffered '
+                 select(.type | IN("message_update","tool_execution_update","queue_update") | not)
+               '
+          echo "pi exit summary: $(wc -l < pi-events.jsonl) events captured"
+
+          # Extract the final assistant message text for the PR comment.
+          jq -r '
+            select(.type == "message_end" and .message.role == "assistant")
+            | .message.content[]? | select(.type == "text") | .text
+          ' pi-events.jsonl > review.md
+
+          # Fallback so we never post an empty comment.
+          [ -s review.md ] || echo "AI review produced no extractable response. See workflow logs." > review.md
+
+      - name: Post review comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --body-file review.md
