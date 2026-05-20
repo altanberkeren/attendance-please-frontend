@@ -12,6 +12,7 @@ import {
   LogOut,
   User,
   ChevronUp,
+  GraduationCap,
 } from "lucide-react"
 import {
   Sidebar,
@@ -41,7 +42,8 @@ const NAV_GROUPS = [
   {
     label: "Main",
     items: [
-      { title: "Overview",  href: "/overview",  icon: LayoutDashboard },
+      { title: "Overview",      href: "/overview", icon: LayoutDashboard },
+      { title: "My Attendance", href: "/student",  icon: GraduationCap },
     ],
   },
   {
