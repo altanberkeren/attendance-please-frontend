@@ -12,6 +12,9 @@ import {
   LogOut,
   User,
   ChevronUp,
+  CalendarCheck,
+  ShieldCheck,
+  GraduationCap,
 } from "lucide-react"
 import {
   Sidebar,
@@ -36,12 +39,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { useProfilePhoto } from "@/hooks/use-profile-photo"
+import { useRoleSimulator } from "@/hooks/use-role-simulator"
 
-const NAV_GROUPS = [
+const ADMIN_NAV_GROUPS = [
   {
     label: "Main",
     items: [
-      { title: "Overview",  href: "/overview",  icon: LayoutDashboard },
+      { title: "Overview", href: "/overview", icon: LayoutDashboard },
     ],
   },
   {
@@ -60,11 +64,31 @@ const NAV_GROUPS = [
   },
 ]
 
+const STAFF_NAV_GROUPS = [
+  {
+    label: "Main",
+    items: [
+      { title: "Overview",    href: "/overview",          icon: LayoutDashboard },
+      { title: "My Courses",  href: "/course-offerings",  icon: Layers },
+      { title: "Sessions",    href: "/sessions",          icon: CalendarCheck },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { title: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
+]
+
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { photoUrl } = useProfilePhoto()
+  const { viewAs, toggle, isStaffView } = useRoleSimulator()
+
+  const navGroups = isStaffView ? STAFF_NAV_GROUPS : ADMIN_NAV_GROUPS
 
   async function handleSignOut() {
     await signOut()
@@ -95,7 +119,7 @@ export function AppSidebar() {
 
       {/* ── Navigation groups ── */}
       <SidebarContent className="px-2 py-3">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel className="text-[10px] font-semibold tracking-wider uppercase text-sidebar-foreground/40 px-2 mb-1">
               {group.label}
@@ -161,6 +185,21 @@ export function AppSidebar() {
                 <DropdownMenuItem onClick={() => router.push("/settings")}>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {/* ── Dev: role simulator toggle ── */}
+                <DropdownMenuItem onClick={toggle}>
+                  {isStaffView ? (
+                    <>
+                      <ShieldCheck className="mr-2 h-4 w-4 text-primary" />
+                      Switch to Admin View
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap className="mr-2 h-4 w-4 text-primary" />
+                      Switch to Staff View
+                    </>
+                  )}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
