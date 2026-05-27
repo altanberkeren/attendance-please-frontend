@@ -2,8 +2,11 @@
 
 import { InteractionStatus } from "@azure/msal-browser"
 import { useIsAuthenticated, useMsal } from "@azure/msal-react"
-import { useMemo } from "react"
-import { loginRequest, msalInitializationPromise } from "@/lib/auth/msal-config"
+import { useEffect, useMemo, useState } from "react"
+import { clearBackendToken } from "@/lib/auth/backend-token"
+import { clearLocalSessionUser, getLocalSessionUser, type LocalSessionUser } from "@/lib/auth/local-session"
+import { getSignInRedirectUri, loginRequest, msalInitializationPromise, type SignInRedirectTarget } from "@/lib/auth/msal-config"
+import { extractUniversityEmailFromClaims } from "@/lib/auth/university-account"
 
 type NormalizedUser = {
   displayName: string
@@ -21,11 +24,29 @@ function getInitials(name: string): string {
 
 export function useAuth() {
   const { instance, accounts, inProgress } = useMsal()
-  const isAuthenticated = useIsAuthenticated()
+  const isMsalAuthenticated = useIsAuthenticated()
+  const [localSessionUser, setLocalSessionUser] = useState<LocalSessionUser | null>(null)
+  const [localSessionLoaded, setLocalSessionLoaded] = useState(false)
 
   const account = useMemo(() => instance.getActiveAccount() ?? accounts[0] ?? null, [accounts, instance])
 
+  useEffect(() => {
+    setLocalSessionUser(getLocalSessionUser())
+    setLocalSessionLoaded(true)
+  }, [])
+
+  const isAuthenticated = isMsalAuthenticated || !!localSessionUser
+
   const user = useMemo<NormalizedUser | null>(() => {
+    if (localSessionUser) {
+      return {
+        displayName: localSessionUser.displayName,
+        email: localSessionUser.email,
+        initials: getInitials(localSessionUser.displayName),
+        roles: localSessionUser.roles,
+      }
+    }
+
     if (!account) return null
 
     const claims = (account.idTokenClaims ?? {}) as Record<string, unknown>
@@ -35,7 +56,7 @@ export function useAuth() {
       : []
 
     const displayName = account.name ?? "User"
-    const email = account.username ?? ""
+    const email = extractUniversityEmailFromClaims(claims, account.username ?? "")
 
     return {
       displayName,
@@ -43,19 +64,28 @@ export function useAuth() {
       initials: getInitials(displayName),
       roles,
     }
-  }, [account])
+  }, [account, localSessionUser])
 
   const isLoading = inProgress !== InteractionStatus.None
-  const isReady = !isLoading
+  const isReady = !isLoading && localSessionLoaded
 
-  async function signIn() {
+  async function signIn(target: SignInRedirectTarget = "root") {
     await msalInitializationPromise
-    await instance.loginRedirect(loginRequest)
+    clearLocalSessionUser()
+    setLocalSessionUser(null)
+    clearBackendToken()
+    instance.setActiveAccount(null)
+    await instance.loginRedirect({
+      ...loginRequest,
+      redirectUri: getSignInRedirectUri(target),
+    })
   }
 
   function signOut() {
-    // Local logout only — clear MSAL cache and active account
-    // without ending the Microsoft session
+    // Local logout only: clear caches without ending the Microsoft session
+    clearBackendToken()
+    clearLocalSessionUser()
+    setLocalSessionUser(null)
     instance.clearCache()
     instance.setActiveAccount(null)
   }

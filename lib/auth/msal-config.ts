@@ -10,13 +10,58 @@ import {
 
 const tenantId = process.env.NEXT_PUBLIC_AZURE_TENANT_ID ?? "2f2dcb5d-f3e1-4f33-8584-dcacd25d604d"
 const clientId = process.env.NEXT_PUBLIC_AZURE_CLIENT_ID ?? "562c6df4-0ce8-4165-8969-f300f4c1842a"
-const apiScope =
-  process.env.NEXT_PUBLIC_AZURE_SCOPE ?? "api://562c6df4-0ce8-4165-8969-f300f4c1842a/api_access"
-const redirectUri = process.env.NEXT_PUBLIC_AZURE_REDIRECT_URI ?? "http://localhost:5173/auth"
-const postLogoutRedirectUri = process.env.NEXT_PUBLIC_AZURE_POST_LOGOUT_REDIRECT_URI ?? "http://localhost:5173/login"
+const configuredApiScope = process.env.NEXT_PUBLIC_AZURE_SCOPE?.trim() || null
+const browserOrigin = typeof window !== "undefined" ? window.location.origin : null
+const isCloudflarePagesHost = typeof window !== "undefined"
+  ? window.location.hostname.endsWith(".attendance-please-frontend.pages.dev")
+  : false
+const stablePagesOrigin = "https://master.attendance-please-frontend.pages.dev"
+
+export type SignInRedirectTarget = "origin" | "root" | "authNoSlash" | "auth"
+
+function getAuthBaseOrigin(): string {
+  if (isCloudflarePagesHost) {
+    return stablePagesOrigin
+  }
+
+  if (browserOrigin) {
+    return browserOrigin
+  }
+
+  return "http://localhost:5173"
+}
+
+export function getSignInRedirectUri(target: SignInRedirectTarget = "root"): string {
+  const baseOrigin = getAuthBaseOrigin()
+
+  if (target === "origin") {
+    return baseOrigin
+  }
+
+  if (target === "authNoSlash") {
+    return `${baseOrigin}/auth`
+  }
+
+  if (target === "auth") {
+    return `${baseOrigin}/auth/`
+  }
+
+  return `${baseOrigin}/`
+}
+
+const redirectUri = process.env.NEXT_PUBLIC_AZURE_REDIRECT_URI ?? getSignInRedirectUri("origin")
+const postLogoutRedirectUri =
+  process.env.NEXT_PUBLIC_AZURE_POST_LOGOUT_REDIRECT_URI ??
+  (isCloudflarePagesHost
+    ? `${stablePagesOrigin}/login/`
+    : browserOrigin
+      ? `${browserOrigin}/login/`
+      : "http://localhost:5173/login/")
 
 export const loginRequest = {
-  scopes: [apiScope, "User.Read"],
+  // Keep login consent-light for students; Graph scopes are requested only where needed.
+  scopes: [],
+  prompt: "select_account" as const,
 }
 
 const msalConfig: Configuration = {
@@ -27,7 +72,7 @@ const msalConfig: Configuration = {
     postLogoutRedirectUri,
   },
   cache: {
-    cacheLocation: "sessionStorage",
+    cacheLocation: "localStorage",
   },
 }
 
@@ -80,8 +125,13 @@ export async function acquireApiAccessToken(): Promise<string | null> {
     return null
   }
 
+  const scopes = configuredApiScope ? [configuredApiScope] : loginRequest.scopes
+  if (scopes.length === 0) {
+    return null
+  }
+
   const silentRequest: SilentRequest = {
-    ...loginRequest,
+    scopes,
     account,
   }
 
@@ -90,7 +140,7 @@ export async function acquireApiAccessToken(): Promise<string | null> {
     return result.accessToken
   } catch (error) {
     if (error instanceof InteractionRequiredAuthError) {
-      await msalInstance.acquireTokenRedirect(loginRequest)
+      // Do not force a redirect here; we can still exchange identity by email/name.
       return null
     }
     throw error

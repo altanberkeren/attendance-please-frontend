@@ -8,6 +8,7 @@ import {
   BookOpen,
   CalendarDays,
   Layers,
+  QrCode,
   Settings,
   LogOut,
   User,
@@ -50,6 +51,7 @@ const NAV_GROUPS = [
       { title: "Courses",          href: "/courses",          icon: BookOpen },
       { title: "Terms",            href: "/terms",            icon: CalendarDays },
       { title: "Course Offerings", href: "/course-offerings", icon: Layers },
+      { title: "Attendance",       href: "/attendance",       icon: QrCode },
     ],
   },
   {

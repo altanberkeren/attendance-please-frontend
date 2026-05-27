@@ -4,7 +4,8 @@ import { MsalProvider } from "@azure/msal-react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { msalInitializationPromise, msalInstance, acquireApiAccessToken } from "@/lib/auth/msal-config"
+import { msalInitializationPromise, msalInstance } from "@/lib/auth/msal-config"
+import { getBackendAccessToken } from "@/lib/auth/backend-token"
 import { setAccessTokenProvider } from "@/lib/auth/token-provider"
 import { ThemeProvider } from "@/hooks/use-theme"
 import { AuthReadyGate } from "@/components/auth-ready-gate"
@@ -16,7 +17,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    setAccessTokenProvider(async () => acquireApiAccessToken())
+    setAccessTokenProvider(async () => getBackendAccessToken())
 
     msalInitializationPromise.finally(() => {
       if (mounted) setMsalInitDone(true)
