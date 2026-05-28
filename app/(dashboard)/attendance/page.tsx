@@ -58,10 +58,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
     }
 
     const detail = candidate.response?.data?.detail
-    if (detail && detail.trim()) return detail
+    if (detail?.trim()) return detail
 
     const title = candidate.response?.data?.title
-    if (title && title.trim()) return title
+    if (title?.trim()) return title
 
     const validationErrors = candidate.response?.data?.errors
     if (validationErrors) {

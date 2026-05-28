@@ -62,17 +62,6 @@ function colLetterToIndex(col: string): number {
   return index - 1
 }
 
-function indexToColLetter(idx: number): string {
-  let letter = ""
-  let n = idx + 1
-  while (n > 0) {
-    n--
-    letter = String.fromCharCode(65 + (n % 26)) + letter
-    n = Math.floor(n / 26)
-  }
-  return letter
-}
-
 function parseWithConfig(rawRows: unknown[][], cfg: ColConfig): ParsedStudent[] {
   const startIdx = Math.max(0, parseInt(cfg.startRow || "1", 10) - 1)
   const noIdx = colLetterToIndex(cfg.noCol)
@@ -120,7 +109,9 @@ export function BulkEnrollModal({
   const parseFile = useCallback((file: File) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      const data = new Uint8Array(e.target!.result as ArrayBuffer)
+      if (!(e.target?.result instanceof ArrayBuffer)) return
+
+      const data = new Uint8Array(e.target.result)
       const wb = XLSX.read(data, { type: "array" })
       const ws = wb.Sheets[wb.SheetNames[0]]
       const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: null, raw: true })
@@ -205,43 +196,39 @@ export function BulkEnrollModal({
 
         {/* ── Step 1: Upload ── */}
         {step === "upload" && (
-          <div
-            role="button"
-            tabIndex={0}
-            className={cn(
-              "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-12 cursor-pointer select-none transition-colors",
-              dragOver
-                ? "border-primary bg-primary/5"
-                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
-            )}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
-          >
-            <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
-            <div className="text-center">
-              <p className="font-semibold">Drag your attendance list here</p>
-              <p className="text-sm text-muted-foreground">or click to browse (.xls, .xlsx)</p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
+          <>
+            <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+              className={cn(
+                "flex w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-12 cursor-pointer select-none transition-colors",
+                dragOver
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+              )}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="mr-2 h-4 w-4" />
-              Choose File
-            </Button>
+              <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
+              <div className="text-center">
+                <p className="font-semibold">Drag your attendance list here</p>
+                <p className="text-sm text-muted-foreground">or click to browse (.xls, .xlsx)</p>
+              </div>
+              <span className="inline-flex h-8 items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition-[color,box-shadow] hover:bg-accent hover:text-accent-foreground">
+                <Upload className="mr-2 h-4 w-4" />
+                Choose File
+              </span>
+            </button>
             <input
               ref={fileInputRef}
+              id="bulk-enroll-file"
               type="file"
               accept=".xlsx,.xls,.csv"
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
-          </div>
+          </>
         )}
 
         {/* ── Step 2: Configure + Preview (combined) ── */}
@@ -315,7 +302,7 @@ export function BulkEnrollModal({
                 <TableBody>
                   {students.length ? (
                     students.map((s, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={`${s.student_no}-${s.first_name}-${s.last_name}`}>
                         <TableCell className="text-muted-foreground text-xs">{i + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{s.student_no}</TableCell>
                         <TableCell>{s.first_name}</TableCell>
@@ -373,7 +360,7 @@ export function BulkEnrollModal({
                 <TableBody>
                   {students.map((s, i) => (
                     <TableRow
-                      key={i}
+                      key={`${s.student_no}-${s.first_name}-${s.last_name}`}
                       className={cn(
                         s.status === "success" && "bg-green-50 dark:bg-green-950/20",
                         s.status === "error" && "bg-red-50 dark:bg-red-950/20"

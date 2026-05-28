@@ -9,7 +9,7 @@ export function generateStaticParams(): Params[] {
 
 export default async function CourseOfferingDetailPage({ params }: { params: Promise<Params> }) {
   const { id } = await params
-  const offering = MOCK_COURSE_OFFERINGS.find((o) => o.id === id)!
+  const offering = MOCK_COURSE_OFFERINGS.find((o) => o.id === id)
 
   return <OfferingDetail offering={offering} />
 }

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Users, UserCog, CalendarCheck, Upload } from "lucide-react"
-import { type CourseOffering } from "@/lib/mock/course-offerings"
+import type { CourseOffering } from "@/lib/mock/course-offerings"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -32,14 +32,14 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive"> = {
   Cancelled: "destructive",
 }
 
-export function OfferingDetail({ offering }: { offering: CourseOffering }) {
+export function OfferingDetail({ offering }: { offering?: CourseOffering }) {
   const router = useRouter()
   const [bulkEnrollOpen, setBulkEnrollOpen] = useState(false)
 
   if (!offering) {
     return (
       <div className="space-y-4">
-        <button onClick={() => router.back()} className="text-sm text-muted-foreground hover:underline">
+        <button type="button" onClick={() => router.back()} className="text-sm text-muted-foreground hover:underline">
           ← Back
         </button>
         <p className="text-muted-foreground">Course offering not found.</p>

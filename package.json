@@ -6,7 +6,7 @@
     "dev": "next dev --hostname 127.0.0.1 --port 5173",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "biome lint .",
     "generate": "orval"
   },
   "dependencies": {
@@ -31,13 +31,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.16",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.4",
     "orval": "^8.9.0",
     "tailwindcss": "^4",
     "typescript": "^5"

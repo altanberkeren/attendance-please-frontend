@@ -2,7 +2,7 @@
 
 import {
   BookOpen, Users, Activity, BarChart3,
-  TrendingUp, AlertTriangle, CheckCircle, Clock,
+  TrendingUp, AlertTriangle, Clock,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -150,8 +150,8 @@ export default function OverviewPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {ACTIVE_SESSIONS.map((s, i) => (
-              <div key={i} className="space-y-2">
+            {ACTIVE_SESSIONS.map((s) => (
+              <div key={`${s.course}-${s.section}-${s.module}`} className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
@@ -189,9 +189,9 @@ export default function OverviewPage() {
             <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            {RECENT_ACTIVITY.map((item, i) => (
+            {RECENT_ACTIVITY.map((item) => (
               <div
-                key={i}
+                key={`${item.msg}-${item.time}`}
                 className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />

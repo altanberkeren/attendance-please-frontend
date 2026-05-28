@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z, ZodObject, ZodRawShape } from "zod"
+import type { z, ZodObject, ZodRawShape } from "zod"
 import {
   Dialog,
   DialogContent,
@@ -29,8 +29,7 @@ export type FieldDef = {
   type?: string
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRecord = Record<string, any>
+type AnyRecord = Record<string, unknown>
 
 type CrudDialogProps = {
   open: boolean
@@ -55,10 +54,11 @@ export function CrudDialog({
     resolver: zodResolver(schema) as never,
     defaultValues,
   })
+  const { reset } = form
 
   useEffect(() => {
-    if (open) form.reset(defaultValues)
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (open) reset(defaultValues)
+  }, [open, reset, defaultValues])
 
   function handleSubmit(values: z.infer<typeof schema>) {
     onSubmit(values)

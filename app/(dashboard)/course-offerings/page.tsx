@@ -7,8 +7,8 @@ import {
   CalendarCheck, ChevronRight, MoreHorizontal,
 } from "lucide-react"
 import { z } from "zod"
-import { CourseOffering, MOCK_COURSE_OFFERINGS } from "@/lib/mock/course-offerings"
-import { CrudDialog, FieldDef } from "@/components/crud-dialog"
+import { type CourseOffering, MOCK_COURSE_OFFERINGS } from "@/lib/mock/course-offerings"
+import { CrudDialog, type FieldDef } from "@/components/crud-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -39,7 +39,8 @@ const EMPTY: OfferingFormValues = { courseName: "", termName: "", section: "" }
 function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
   return arr.reduce<Record<string, T[]>>((acc, item) => {
     const k = key(item)
-    ;(acc[k] ??= []).push(item)
+    acc[k] ??= []
+    acc[k].push(item)
     return acc
   }, {})
 }
@@ -66,8 +67,7 @@ export default function CourseOfferingsPage() {
   function openEdit(o: CourseOffering) { setEditing(o); setDialog(true) }
   function handleDelete(id: string) { setOfferings((p) => p.filter((o) => o.id !== id)) }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function handleSubmit(raw: any) {
+  function handleSubmit(raw: unknown) {
     const v = raw as OfferingFormValues
     if (editing) {
       setOfferings((p) => p.map((o) => o.id === editing.id ? { ...o, ...v } : o))

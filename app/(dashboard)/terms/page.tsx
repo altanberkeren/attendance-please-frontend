@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { CalendarDays, Plus, Pencil, Trash2, Clock, MoreHorizontal } from "lucide-react"
 import { z } from "zod"
-import { Term, MOCK_TERMS } from "@/lib/mock/terms"
-import { CrudDialog, FieldDef } from "@/components/crud-dialog"
+import { type Term, MOCK_TERMS } from "@/lib/mock/terms"
+import { CrudDialog, type FieldDef } from "@/components/crud-dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -70,8 +70,7 @@ export default function TermsPage() {
   function openEdit(t: Term) { setEditing(t); setDialog(true) }
   function handleDelete(id: string) { setTerms((p) => p.filter((t) => t.id !== id)) }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function handleSubmit(raw: any) {
+  function handleSubmit(raw: unknown) {
     const v = raw as TermFormValues
     if (editing) {
       setTerms((p) => p.map((t) => t.id === editing.id ? { ...t, ...v } : t))
@@ -224,6 +223,7 @@ export default function TermsPage() {
 
           {/* Add placeholder */}
           <button
+            type="button"
             onClick={openCreate}
             className="group flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 min-h-[200px] transition-all duration-200"
           >

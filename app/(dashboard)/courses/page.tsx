@@ -3,11 +3,10 @@
 import { useState } from "react"
 import { BookOpen, Plus, Search, Pencil, Trash2, MoreHorizontal } from "lucide-react"
 import { z } from "zod"
-import { Course, MOCK_COURSES } from "@/lib/mock/courses"
-import { CrudDialog, FieldDef } from "@/components/crud-dialog"
+import { type Course, MOCK_COURSES } from "@/lib/mock/courses"
+import { CrudDialog, type FieldDef } from "@/components/crud-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   DropdownMenu, DropdownMenuContent,
@@ -60,8 +59,7 @@ export default function CoursesPage() {
   function openEdit(c: Course) { setEditing(c); setDialog(true) }
   function handleDelete(id: string) { setCourses((p) => p.filter((c) => c.id !== id)) }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function handleSubmit(raw: any) {
+  function handleSubmit(raw: unknown) {
     const v = raw as CourseFormValues
     if (editing) {
       setCourses((p) => p.map((c) => c.id === editing.id ? { ...c, ...v } : c))
@@ -185,6 +183,7 @@ export default function CoursesPage() {
 
           {/* Add new placeholder */}
           <button
+            type="button"
             onClick={openCreate}
             className="group flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 min-h-[160px] transition-all duration-200"
           >
