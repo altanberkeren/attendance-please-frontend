@@ -1,29 +1,42 @@
+"use client"
+
+import Link from "next/link"
 import { AlertTriangle, ClipboardCheck, GraduationCap, TrendingUp } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { useGetApiEnrollments } from "@/lib/api/enrollments/enrollments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-
-const STUDENT_STATS = [
-  { label: "My Courses", value: "—", icon: GraduationCap },
-  { label: "Attendance Rate", value: "—", icon: TrendingUp },
-  { label: "Present", value: "—", icon: ClipboardCheck },
-  { label: "Warnings", value: "—", icon: AlertTriangle },
-]
+import { Button } from "@/components/ui/button"
 
 export function StudentDashboard() {
+  const { user } = useAuth()
+  const enrollmentsQuery = useGetApiEnrollments(
+    user?.id ? { userId: user.id } : undefined,
+    { query: { enabled: !!user?.id } },
+  )
+
+  const courseCount = enrollmentsQuery.data?.length ?? 0
+  const studentStats = [
+    { label: "My Courses", value: enrollmentsQuery.isLoading ? "…" : String(courseCount), icon: GraduationCap },
+    { label: "Attendance Rate", value: "View", icon: TrendingUp },
+    { label: "Marked Modules", value: "View", icon: ClipboardCheck },
+    { label: "Warnings", value: "View", icon: AlertTriangle },
+  ]
+
   return (
     <div className="space-y-6 max-w-screen-xl">
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">Student Dashboard</h1>
-          <Badge variant="secondary">Work in progress</Badge>
+          <Badge variant="secondary">Student</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Your enrolled courses and attendance level will be shown here.
+          Track your enrolled courses and attendance level.
         </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {STUDENT_STATS.map((stat) => (
+        {studentStats.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
@@ -31,7 +44,7 @@ export function StudentDashboard() {
                 <stat.icon className="h-4 w-4 text-primary" />
               </div>
               <div className="text-2xl font-bold tracking-tight">{stat.value}</div>
-              <p className="mt-1 text-xs text-muted-foreground">Pending student API/view integration</p>
+              <p className="mt-1 text-xs text-muted-foreground">Per-course details available below</p>
             </CardContent>
           </Card>
         ))}
@@ -39,11 +52,13 @@ export function StudentDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Next student work</CardTitle>
+          <CardTitle className="text-base">My course attendance</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Student navigation is separated now. We can later add enrolled courses and per-course
-          attendance summaries using the enrollment and attendance overview APIs.
+        <CardContent className="flex flex-col gap-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <p>Open your courses to review attendance charts, status, and module marks.</p>
+          <Button asChild className="self-start sm:self-auto">
+            <Link href="/my-courses">Open My Courses</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>
