@@ -205,7 +205,7 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium">{item.label}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
-              {/* Simple toggle-style badge (visual only — no state in this demo) */}
+              {/* Simple toggle-style badge (visual only — no state persisted yet) */}
               <Badge variant="outline" className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
                 Enabled
               </Badge>

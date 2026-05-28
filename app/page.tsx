@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/hooks/use-auth"
+import { consumePendingAuthRedirect } from "@/lib/auth/pending-redirect"
 
 export default function RootPage() {
   const router = useRouter()
@@ -15,7 +16,12 @@ export default function RootPage() {
       return
     }
 
-    router.replace(isAuthenticated ? "/overview" : "/login")
+    if (isAuthenticated) {
+      router.replace(consumePendingAuthRedirect() ?? "/overview")
+      return
+    }
+
+    router.replace("/login")
   }, [isAuthenticated, isReady, router])
 
   return (

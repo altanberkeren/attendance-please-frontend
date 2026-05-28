@@ -10,57 +10,15 @@ import {
 
 const tenantId = process.env.NEXT_PUBLIC_AZURE_TENANT_ID ?? "2f2dcb5d-f3e1-4f33-8584-dcacd25d604d"
 const clientId = process.env.NEXT_PUBLIC_AZURE_CLIENT_ID ?? "562c6df4-0ce8-4165-8969-f300f4c1842a"
-const configuredApiScope = process.env.NEXT_PUBLIC_AZURE_SCOPE?.trim() || null
-const browserOrigin = typeof window !== "undefined" ? window.location.origin : null
-const isCloudflarePagesHost = typeof window !== "undefined"
-  ? window.location.hostname.endsWith(".attendance-please-frontend.pages.dev")
-  : false
-const stablePagesOrigin = "https://master.attendance-please-frontend.pages.dev"
+const defaultApiScope = `api://${clientId}/api_access`
+const configuredApiScope = process.env.NEXT_PUBLIC_AZURE_SCOPE?.trim() || defaultApiScope
+const browserOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost:5173"
 
-export type SignInRedirectTarget = "origin" | "root" | "authNoSlash" | "auth"
-
-function getAuthBaseOrigin(): string {
-  if (isCloudflarePagesHost) {
-    return stablePagesOrigin
-  }
-
-  if (browserOrigin) {
-    return browserOrigin
-  }
-
-  return "http://localhost:5173"
-}
-
-export function getSignInRedirectUri(target: SignInRedirectTarget = "root"): string {
-  const baseOrigin = getAuthBaseOrigin()
-
-  if (target === "origin") {
-    return baseOrigin
-  }
-
-  if (target === "authNoSlash") {
-    return `${baseOrigin}/auth`
-  }
-
-  if (target === "auth") {
-    return `${baseOrigin}/auth/`
-  }
-
-  return `${baseOrigin}/`
-}
-
-const redirectUri = process.env.NEXT_PUBLIC_AZURE_REDIRECT_URI ?? getSignInRedirectUri("origin")
-const postLogoutRedirectUri =
-  process.env.NEXT_PUBLIC_AZURE_POST_LOGOUT_REDIRECT_URI ??
-  (isCloudflarePagesHost
-    ? `${stablePagesOrigin}/login/`
-    : browserOrigin
-      ? `${browserOrigin}/login/`
-      : "http://localhost:5173/login/")
+const redirectUri = process.env.NEXT_PUBLIC_AZURE_REDIRECT_URI ?? browserOrigin
+const postLogoutRedirectUri = process.env.NEXT_PUBLIC_AZURE_POST_LOGOUT_REDIRECT_URI ?? `${browserOrigin}/login`
 
 export const loginRequest = {
-  // Keep login consent-light for students; Graph scopes are requested only where needed.
-  scopes: [],
+  scopes: [configuredApiScope],
   prompt: "select_account" as const,
 }
 
@@ -101,8 +59,6 @@ msalInstance.addEventCallback((event) => {
 export const msalInitializationPromise = msalInstance.initialize().then(() => {
   // handleRedirectPromise() is handled by MsalProvider — do not call it here
   // to avoid racing with MSAL React's internal redirect processing.
-
-  // Restore active account from sessionStorage cache (for returning sessions)
   const account = getPreferredAccount(msalInstance.getAllAccounts())
   if (account) {
     msalInstance.setActiveAccount(account)
@@ -125,13 +81,8 @@ export async function acquireApiAccessToken(): Promise<string | null> {
     return null
   }
 
-  const scopes = configuredApiScope ? [configuredApiScope] : loginRequest.scopes
-  if (scopes.length === 0) {
-    return null
-  }
-
   const silentRequest: SilentRequest = {
-    scopes,
+    scopes: [configuredApiScope],
     account,
   }
 
@@ -140,7 +91,6 @@ export async function acquireApiAccessToken(): Promise<string | null> {
     return result.accessToken
   } catch (error) {
     if (error instanceof InteractionRequiredAuthError) {
-      // Do not force a redirect here; we can still exchange identity by email/name.
       return null
     }
     throw error

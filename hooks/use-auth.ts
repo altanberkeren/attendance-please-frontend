@@ -2,13 +2,15 @@
 
 import { InteractionStatus } from "@azure/msal-browser"
 import { useIsAuthenticated, useMsal } from "@azure/msal-react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { clearBackendToken } from "@/lib/auth/backend-token"
-import { clearLocalSessionUser, getLocalSessionUser, type LocalSessionUser } from "@/lib/auth/local-session"
-import { getSignInRedirectUri, loginRequest, msalInitializationPromise, type SignInRedirectTarget } from "@/lib/auth/msal-config"
-import { extractUniversityEmailFromClaims } from "@/lib/auth/university-account"
+import { exchangeEntraTokenForBackendSession } from "@/lib/auth/auth-service"
+import { getAuthSession, type BackendAuthSession } from "@/lib/auth/session"
+import { loginRequest, msalInitializationPromise } from "@/lib/auth/msal-config"
+import { setPendingAuthRedirect } from "@/lib/auth/pending-redirect"
 
 type NormalizedUser = {
+  id: number | string
   displayName: string
   email: string
   initials: string
@@ -25,68 +27,85 @@ function getInitials(name: string): string {
 export function useAuth() {
   const { instance, accounts, inProgress } = useMsal()
   const isMsalAuthenticated = useIsAuthenticated()
-  const [localSessionUser, setLocalSessionUser] = useState<LocalSessionUser | null>(null)
-  const [localSessionLoaded, setLocalSessionLoaded] = useState(false)
+  const [session, setSession] = useState<BackendAuthSession | null>(() => getAuthSession())
+  const [exchangeError, setExchangeError] = useState<string | null>(null)
+  const [isExchanging, setIsExchanging] = useState(false)
+  const exchangeInFlightRef = useRef(false)
+  const mountedRef = useRef(false)
 
   const account = useMemo(() => instance.getActiveAccount() ?? accounts[0] ?? null, [accounts, instance])
 
   useEffect(() => {
-    setLocalSessionUser(getLocalSessionUser())
-    setLocalSessionLoaded(true)
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
   }, [])
 
-  const isAuthenticated = isMsalAuthenticated || !!localSessionUser
+  const reloadSession = useCallback(() => {
+    setSession(getAuthSession())
+  }, [])
+
+  useEffect(() => {
+    reloadSession()
+  }, [reloadSession])
+
+  useEffect(() => {
+    if (inProgress !== InteractionStatus.None || !isMsalAuthenticated || !account || session || exchangeInFlightRef.current || exchangeError) {
+      return
+    }
+
+    exchangeInFlightRef.current = true
+    setIsExchanging(true)
+    setExchangeError(null)
+
+    exchangeEntraTokenForBackendSession()
+      .then((nextSession) => {
+        if (mountedRef.current) setSession(nextSession)
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : "Could not complete backend sign-in."
+        if (mountedRef.current) setExchangeError(message)
+      })
+      .finally(() => {
+        exchangeInFlightRef.current = false
+        if (mountedRef.current) setIsExchanging(false)
+      })
+  }, [account, exchangeError, inProgress, isMsalAuthenticated, session])
 
   const user = useMemo<NormalizedUser | null>(() => {
-    if (localSessionUser) {
-      return {
-        displayName: localSessionUser.displayName,
-        email: localSessionUser.email,
-        initials: getInitials(localSessionUser.displayName),
-        roles: localSessionUser.roles,
-      }
-    }
-
-    if (!account) return null
-
-    const claims = (account.idTokenClaims ?? {}) as Record<string, unknown>
-    const rolesClaim = claims.roles
-    const roles = Array.isArray(rolesClaim)
-      ? rolesClaim.filter((role): role is string => typeof role === "string")
-      : []
-
-    const displayName = account.name ?? "User"
-    const email = extractUniversityEmailFromClaims(claims, account.username ?? "")
+    if (!session?.user) return null
 
     return {
-      displayName,
-      email,
-      initials: getInitials(displayName),
-      roles,
+      id: session.user.id,
+      displayName: session.user.name,
+      email: session.user.email,
+      initials: getInitials(session.user.name),
+      roles: session.user.roles,
     }
-  }, [account, localSessionUser])
+  }, [session])
 
-  const isLoading = inProgress !== InteractionStatus.None
-  const isReady = !isLoading && localSessionLoaded
+  const isMsalBusy = inProgress !== InteractionStatus.None
+  const isMsalReady = !isMsalBusy
+  const isLoading = isMsalBusy || isExchanging
+  const isReady = !isMsalBusy && !isExchanging
+  const isAuthenticated = !!session
 
-  async function signIn(target: SignInRedirectTarget = "root") {
+  async function signIn(returnTo?: string) {
     await msalInitializationPromise
-    clearLocalSessionUser()
-    setLocalSessionUser(null)
+    setPendingAuthRedirect(returnTo)
     clearBackendToken()
+    setSession(null)
+    setExchangeError(null)
     instance.setActiveAccount(null)
-    await instance.loginRedirect({
-      ...loginRequest,
-      redirectUri: getSignInRedirectUri(target),
-    })
+    await instance.loginRedirect(loginRequest)
   }
 
-  function signOut() {
-    // Local logout only: clear caches without ending the Microsoft session
+  async function signOut() {
     clearBackendToken()
-    clearLocalSessionUser()
-    setLocalSessionUser(null)
-    instance.clearCache()
+    setSession(null)
+    setExchangeError(null)
+    await instance.clearCache()
     instance.setActiveAccount(null)
   }
 
@@ -96,6 +115,10 @@ export function useAuth() {
     isAuthenticated,
     isLoading,
     isReady,
+    isMsalReady,
+    isExchanging,
+    exchangeError,
+    reloadSession,
     signIn,
     signOut,
   }
