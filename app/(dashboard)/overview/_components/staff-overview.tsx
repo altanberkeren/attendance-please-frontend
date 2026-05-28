@@ -22,9 +22,9 @@ const STAFF_STATS = [
 ]
 
 const TODAY_SCHEDULE = [
-  { id: "ts1", time: "09:00 – 10:30", code: "CS101", module: "Module 4: Loops & Iteration", section: "Section A", students: 28, status: "done",     present: 24 },
-  { id: "ts2", time: "11:00 – 12:30", code: "CS301", module: "Module 6: Graph Algorithms",  section: "Section A", students: 22, status: "upcoming",  present: null },
-  { id: "ts3", time: "14:00 – 15:30", code: "CS201", module: "Module 5: Trees",              section: "Section B", students: 31, status: "upcoming",  present: null },
+  { id: "ts1", time: "09:00 - 10:30", code: "CS101", module: "Module 4: Loops & Iteration", section: "Section A", students: 28, status: "done",     present: 24 },
+  { id: "ts2", time: "11:00 - 12:30", code: "CS301", module: "Module 6: Graph Algorithms",  section: "Section A", students: 22, status: "upcoming",  present: null },
+  { id: "ts3", time: "14:00 - 15:30", code: "CS201", module: "Module 5: Trees",              section: "Section B", students: 31, status: "upcoming",  present: null },
 ]
 
 const MY_COURSES = [
@@ -107,7 +107,7 @@ export function StaffOverview() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <CalendarCheck className="h-4 w-4 text-primary" />Today's Schedule
+                <CalendarCheck className="h-4 w-4 text-primary" />Today&apos;s Schedule
               </CardTitle>
               <Badge variant="secondary" className="text-xs">{TODAY_SCHEDULE.length} sessions</Badge>
             </div>
@@ -119,7 +119,7 @@ export function StaffOverview() {
                 session.status === "done" ? "bg-muted/40 border-transparent" : "border-border",
               )}>
                 <div className="text-[11px] font-mono text-muted-foreground w-20 shrink-0 text-center whitespace-pre-line leading-tight">
-                  {session.time.replace(" – ", "\n")}
+                  {session.time.replace(" - ", "\n")}
                 </div>
                 <div className={cn("w-0.5 self-stretch rounded-full shrink-0",
                   session.status === "done" ? "bg-muted-foreground/30" : "bg-primary"
