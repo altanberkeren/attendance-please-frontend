@@ -21,6 +21,7 @@ import { useTheme } from "@/hooks/use-theme"
 
 const ROUTE_LABELS: Record<string, string> = {
   "/overview": "Overview",
+  "/student": "My Attendance",
   "/courses": "Courses",
   "/terms": "Terms",
   "/course-offerings": "Course Offerings",
