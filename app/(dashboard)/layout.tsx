@@ -22,7 +22,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/terms":            "Terms",
   "/course-offerings": "Course Offerings",
   "/my-courses":       "My Courses",
-  "/sessions":         "Sessions",
+  "/sessions":         "Session Details",
   "/settings":         "Settings",
   "/attendance":       "AttendancePlease",
 }

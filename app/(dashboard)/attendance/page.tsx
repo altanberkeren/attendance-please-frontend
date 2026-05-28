@@ -1,121 +1,90 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import { AttendanceRoster } from "@/components/attendance-roster"
 import {
   QrCode, ChevronRight, ChevronLeft, Check, Scan, RefreshCw,
   Wifi, Nfc, UserPlus, Search, Clock, StopCircle,
-  CheckCircle2, Circle, ExternalLink, Pencil, ArrowLeft,
+  CheckCircle2, Circle, ExternalLink, Pencil, ArrowLeft, Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useCurrentUser } from "@/hooks/use-current-user"
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── API hooks ─────────────────────────────────────────────────────────────────
 
-const ASSIGNED_COURSES = [
-  { id: "co1", code: "CS101", name: "Intro to Computer Science", term: "Spring 2025" },
-  { id: "co2", code: "CS301", name: "Algorithms",                term: "Spring 2025" },
-  { id: "co3", code: "CS201", name: "Data Structures",           term: "Spring 2025" },
-]
+import { useGetApiCourseOfferings } from "@/lib/api/course-offerings/course-offerings"
+import { useGetApiCourseOfferingStaffs } from "@/lib/api/course-offering-staffs/course-offering-staffs"
+import { useGetApiModules } from "@/lib/api/modules/modules"
+import { useGetApiSections } from "@/lib/api/sections/sections"
+import { useGetApiEnrollments } from "@/lib/api/enrollments/enrollments"
+import {
+  useGetApiSessions,
+  usePostApiSessions,
+  usePostApiSessionsIdClose,
+} from "@/lib/api/sessions/sessions"
+import {
+  useGetApiAttendancesSessionSessionId,
+  usePostApiAttendancesMark,
+} from "@/lib/api/attendances/attendances"
 
-const SECTIONS: Record<string, { id: string; label: string }[]> = {
-  co1: [{ id: "s1", label: "Section A" }, { id: "s2", label: "Section B" }],
-  co2: [{ id: "s1", label: "Section A" }],
-  co3: [{ id: "s1", label: "Section A" }, { id: "s2", label: "Section B" }],
-}
+// ── Backend model types ───────────────────────────────────────────────────────
 
-const MODULES: Record<string, { id: string; name: string }[]> = {
-  co1: [
-    { id: "m1", name: "Module 1: Introduction" },
-    { id: "m2", name: "Module 2: Variables & Types" },
-    { id: "m3", name: "Module 3: Functions" },
-    { id: "m4", name: "Module 4: Loops & Iteration" },
-  ],
-  co2: [
-    { id: "m1", name: "Module 1: Big O Notation" },
-    { id: "m2", name: "Module 2: Sorting Algorithms" },
-    { id: "m3", name: "Module 3: Graph Algorithms" },
-  ],
-  co3: [
-    { id: "m1", name: "Module 1: Arrays & Lists" },
-    { id: "m2", name: "Module 2: Stacks & Queues" },
-    { id: "m3", name: "Module 3: Trees" },
-  ],
-}
+import {
+  AttendanceMethod,
+  AttendanceStatus,
+} from "@/lib/api/model"
+import type {
+  CourseOfferingDto,
+  ModuleDto,
+  SectionDto,
+  EnrollmentDto,
+  AttendanceDto,
+  SessionDto,
+} from "@/lib/api/model"
 
-const ROSTER: Record<string, { id: string; name: string; studentId: string }[]> = {
-  co1: [
-    { id: "st1", name: "Alice Johnson", studentId: "20190001" },
-    { id: "st2", name: "Bob Smith",     studentId: "20190002" },
-    { id: "st3", name: "Carol White",   studentId: "20190003" },
-    { id: "st4", name: "David Brown",   studentId: "20190004" },
-    { id: "st5", name: "Eve Davis",     studentId: "20190005" },
-    { id: "st6", name: "Frank Wilson",  studentId: "20190006" },
-  ],
-  co2: [
-    { id: "st7",  name: "Grace Lee",    studentId: "20190007" },
-    { id: "st8",  name: "Henry Taylor", studentId: "20190008" },
-    { id: "st9",  name: "Irene Park",   studentId: "20190009" },
-    { id: "st10", name: "James Kim",    studentId: "20190010" },
-  ],
-  co3: [
-    { id: "st11", name: "Karen Liu",    studentId: "20190011" },
-    { id: "st12", name: "Leo Chen",     studentId: "20190012" },
-    { id: "st13", name: "Maria Santos", studentId: "20190013" },
-    { id: "st14", name: "Nathan Wu",    studentId: "20190014" },
-    { id: "st15", name: "Olivia Hart",  studentId: "20190015" },
-  ],
-}
-
-// ── Method definitions ─────────────────────────────────────────────────────────
+// ── Method config ─────────────────────────────────────────────────────────────
 
 type MethodId = "qr" | "qr-wifi" | "nfc"
+
+const METHOD_MAP: Record<MethodId, AttendanceMethod> = {
+  "qr":      AttendanceMethod.Qr,
+  "qr-wifi": AttendanceMethod.QrWifi,
+  "nfc":     AttendanceMethod.Nfc,
+}
 
 const METHODS: {
   id: MethodId; label: string
   icon: React.ElementType; secondaryIcon?: React.ElementType
   color: string; bg: string; ring: string
 }[] = [
-  { id: "qr",      label: "QR Code",   icon: QrCode, color: "text-primary",    bg: "bg-primary/10",    ring: "ring-primary"    },
-  { id: "qr-wifi", label: "QR + WiFi", icon: QrCode, secondaryIcon: Wifi,
-                                                       color: "text-blue-500",  bg: "bg-blue-500/10",   ring: "ring-blue-500"   },
-  { id: "nfc",     label: "NFC",       icon: Nfc,    color: "text-violet-500", bg: "bg-violet-500/10", ring: "ring-violet-500" },
+  { id: "qr",      label: "QR Code",   icon: QrCode,  color: "text-primary",    bg: "bg-primary/10",    ring: "ring-primary"    },
+  { id: "qr-wifi", label: "QR + WiFi", icon: QrCode,  secondaryIcon: Wifi,
+                                                        color: "text-blue-500",  bg: "bg-blue-500/10",   ring: "ring-blue-500"   },
+  { id: "nfc",     label: "NFC",       icon: Nfc,     color: "text-violet-500", bg: "bg-violet-500/10", ring: "ring-violet-500" },
 ]
+
+// ── Mock fallback (shared from lib/mock-data) ─────────────────────────────────
+
+import { MOCK_OFFERINGS, MOCK_MODULES, MOCK_SECTIONS, MOCK_SESSIONS, makeMockEnrollments } from "@/lib/mock-data"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Step = "course" | "session-setup" | "method" | "live"
 
 interface Selection {
-  courseId:  string | null
-  sectionId: string | null
-  moduleId:  string | null
+  courseId:  number | string | null
+  sectionId: number | string | null
+  moduleId:  number | string | null
   method:    MethodId | null
 }
 
-interface MarkedStudent {
-  id: string; name: string; studentId: string; markedAt: Date; via: "auto" | "manual"
-}
-
-export interface SessionRecord {
-  id:           string
-  courseCode:   string
-  moduleName:   string
-  sectionLabel: string
-  method:       MethodId
-  startedAt:    Date
-  endedAt:      Date | null
-  duration:     string
-  attendance:   MarkedStudent[]
-  totalRoster:  number
-  status:       "active" | "closed"
-}
-
-// ── Hooks ─────────────────────────────────────────────────────────────────────
+// ── Hook: elapsed timer ───────────────────────────────────────────────────────
 
 function useTimer(running: boolean) {
   const [secs, setSecs] = useState(0)
@@ -124,43 +93,40 @@ function useTimer(running: boolean) {
     const id = setInterval(() => setSecs(s => s + 1), 1000)
     return () => clearInterval(id)
   }, [running])
-  return `${String(Math.floor(secs / 60)).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`
+  const m = String(Math.floor(secs / 60)).padStart(2, "0")
+  const s = String(secs % 60).padStart(2, "0")
+  return `${m}:${s}`
 }
 
 // ── Step indicator ─────────────────────────────────────────────────────────────
 
-const STEP_DEFS: { key: Step; label: string }[] = [
-  { key: "course",        label: "Course"  },
-  { key: "session-setup", label: "Session" },
-  { key: "method",        label: "Method"  },
+const STEP_LIST = [
+  { key: "course",        label: "Course"    },
+  { key: "session-setup", label: "Module"    },
+  { key: "method",        label: "Method"    },
+  { key: "live",          label: "Live"      },
 ]
 
 function StepIndicator({ current }: { current: Step }) {
-  if (current === "live") return null
-  const idx = STEP_DEFS.findIndex(s => s.key === current)
+  const idx = STEP_LIST.findIndex(s => s.key === current)
   return (
-    <div className="flex items-center">
-      {STEP_DEFS.map((step, i) => (
+    <div className="flex items-center gap-0 mb-2">
+      {STEP_LIST.map((step, i) => (
         <div key={step.key} className="flex items-center flex-1 last:flex-none">
           <div className="flex items-center gap-2">
             <div className={cn(
-              "h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors",
-              i < idx   && "bg-primary text-primary-foreground",
-              i === idx && "bg-primary text-primary-foreground ring-[3px] ring-primary/20 ring-offset-2",
-              i > idx   && "bg-muted text-muted-foreground",
+              "h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
+              i < idx  && "bg-primary text-primary-foreground",
+              i === idx && "bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-2",
+              i > idx  && "bg-muted text-muted-foreground",
             )}>
               {i < idx ? <Check className="h-3.5 w-3.5" /> : i + 1}
             </div>
-            <span className={cn(
-              "text-sm hidden sm:block",
-              i === idx ? "font-semibold text-foreground" : "text-muted-foreground",
-            )}>
+            <span className={cn("text-xs font-medium hidden sm:block", i === idx ? "text-foreground" : "text-muted-foreground")}>
               {step.label}
             </span>
           </div>
-          {i < STEP_DEFS.length - 1 && (
-            <div className={cn("flex-1 h-px mx-3", i < idx ? "bg-primary" : "bg-border")} />
-          )}
+          {i < STEP_LIST.length - 1 && <div className={cn("flex-1 h-px mx-3", i < idx ? "bg-primary" : "bg-muted")} />}
         </div>
       ))}
     </div>
@@ -169,19 +135,32 @@ function StepIndicator({ current }: { current: Step }) {
 
 // ── Step 1: Course ─────────────────────────────────────────────────────────────
 
-function CourseStep({ sel, setSel, onNext }: {
-  sel: Selection; setSel: (s: Selection) => void; onNext: () => void
+function CourseStep({ offerings, sel, setSel, onNext, isLoading, isMockMode }: {
+  offerings: CourseOfferingDto[]
+  sel: Selection; setSel: (s: Selection) => void
+  onNext: () => void; isLoading?: boolean; isMockMode?: boolean
 }) {
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+
+  if (offerings.length === 0) return (
+    <div className="text-center py-10 text-sm text-muted-foreground">No courses assigned to you yet.</div>
+  )
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Which course are you teaching right now?</p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Which course are you teaching right now?</p>
+        {isMockMode && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            Demo Mode
+          </span>
+        )}
+      </div>
       <div className="space-y-2">
-        {ASSIGNED_COURSES.map(c => {
+        {offerings.map(c => {
           const active = sel.courseId === c.id
           return (
-            <button
-              key={c.id}
-              onClick={() => setSel({ ...sel, courseId: c.id, sectionId: null, moduleId: null })}
+            <button key={String(c.id)} onClick={() => setSel({ ...sel, courseId: c.id, sectionId: null, moduleId: null })}
               className={cn(
                 "w-full text-left rounded-xl border px-4 py-3.5 transition-all",
                 "hover:border-primary/50 hover:bg-muted/50",
@@ -190,17 +169,17 @@ function CourseStep({ sel, setSel, onNext }: {
             >
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "h-10 w-10 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors",
+                  "h-10 w-10 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0",
                   active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
                 )}>
-                  {c.code.replace(/[^A-Z]/g, "").slice(0, 2)}
+                  {c.courseCode.replace(/[^A-Z]/g, "").slice(0, 2)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{c.code}</span>
-                    <span className="text-xs text-muted-foreground">{c.term}</span>
+                    <span className="font-semibold">{c.courseCode}</span>
+                    <span className="text-xs text-muted-foreground">{c.termCode}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground truncate">{c.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{c.courseTitle}</p>
                 </div>
                 {active && <Check className="h-4 w-4 text-primary shrink-0" />}
               </div>
@@ -219,70 +198,146 @@ function CourseStep({ sel, setSel, onNext }: {
 
 // ── Step 2: Section + Module ───────────────────────────────────────────────────
 
-function SessionSetupStep({ sel, setSel, onNext, onBack }: {
-  sel: Selection; setSel: (s: Selection) => void; onNext: () => void; onBack: () => void
+function SessionSetupStep({ modules, sections, sessions, sel, setSel, onNext, onBack, isLoading }: {
+  modules: ModuleDto[]; sections: SectionDto[]
+  sessions: SessionDto[]
+  sel: Selection; setSel: (s: Selection) => void
+  onNext: () => void; onBack: () => void; isLoading?: boolean
 }) {
-  const sections  = sel.courseId ? (SECTIONS[sel.courseId] ?? []) : []
-  const modules   = sel.courseId ? (MODULES[sel.courseId]  ?? []) : []
-  const singleSec = sections.length === 1
+  const [showPastModules, setShowPastModules] = useState(false)
+
+  // Auto-select if single section
+  useEffect(() => {
+    if (sections.length === 1 && sel.sectionId !== sections[0].id) {
+      setSel({ ...sel, sectionId: sections[0].id })
+    }
+  }, [sections, sel, setSel])
+
+  const showSections = sections.length > 1
+  const sectionSessions = sel.sectionId
+    ? sessions.filter(session => String(session.sectionId) === String(sel.sectionId))
+    : sessions
+  const attendedModuleIds = new Set(sectionSessions.map(session => String(session.moduleId)))
+  const sortedModules = [...modules].sort((a, b) => Number(a.orderIndex) - Number(b.orderIndex))
+  const upcomingModules = sortedModules.filter(module => !attendedModuleIds.has(String(module.id)))
+  const pastModules = sortedModules.filter(module => attendedModuleIds.has(String(module.id)))
+  const nextModule = upcomingModules[0] ?? pastModules[pastModules.length - 1]
+  const visibleModules = upcomingModules.length > 0
+    ? upcomingModules
+    : (nextModule ? [nextModule] : [])
+  const hiddenPastModules = upcomingModules.length > 0
+    ? pastModules
+    : pastModules.filter(module => String(module.id) !== String(nextModule?.id))
 
   useEffect(() => {
-    if (singleSec) setSel({ ...sel, sectionId: sections[0].id })
+    if (!nextModule) return
+    if (!sel.moduleId || hiddenPastModules.some(module => String(module.id) === String(sel.moduleId))) {
+      setSel({ ...sel, moduleId: nextModule.id })
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel.courseId])
+  }, [nextModule?.id, sel.sectionId])
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+
+  function renderModuleButton(module: ModuleDto, options?: { isNext?: boolean; isPast?: boolean }) {
+    const active = sel.moduleId === module.id
+    const takenCount = sectionSessions.filter(session => String(session.moduleId) === String(module.id)).length
+    return (
+      <button key={String(module.id)} onClick={() => setSel({ ...sel, moduleId: module.id })}
+        className={cn(
+          "w-full text-left rounded-lg border px-4 py-3 transition-all text-sm",
+          "hover:border-primary/40 hover:bg-muted/50",
+          active && "border-primary bg-primary/5 ring-1 ring-primary/20",
+          options?.isNext && !active && "border-primary/30 bg-primary/5",
+          options?.isPast && "bg-muted/20",
+        )}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={active ? "font-semibold" : "font-medium"}>{module.title}</span>
+              {options?.isNext && upcomingModules.length > 0 && (
+                <Badge variant="default" className="text-[10px] px-1.5 py-0">Next</Badge>
+              )}
+              {options?.isPast && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {takenCount} taken
+                </Badge>
+              )}
+            </div>
+            {options?.isPast && (
+              <p className="mt-1 text-xs text-muted-foreground">Previous module, available for retake or edits.</p>
+            )}
+          </div>
+          {active && <Check className="h-4 w-4 text-primary shrink-0" />}
+        </div>
+      </button>
+    )
+  }
 
   return (
     <div className="space-y-5">
-      {!singleSec && (
+      {showSections && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Section</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {sections.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setSel({ ...sel, sectionId: s.id })}
+              <button key={String(s.id)} onClick={() => {
+                setShowPastModules(false)
+                setSel({ ...sel, sectionId: s.id, moduleId: null })
+              }}
                 className={cn(
-                  "px-5 py-2 rounded-lg border text-sm font-medium transition-all",
+                  "px-4 py-2 rounded-lg border text-sm font-medium transition-all",
                   sel.sectionId === s.id
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    ? "border-primary bg-primary/5 text-primary ring-1 ring-primary/20"
                     : "hover:border-primary/40 hover:bg-muted/50",
                 )}
               >
-                {s.label}
+                {s.name}
               </button>
             ))}
           </div>
-          <div className="h-px bg-border" />
         </div>
       )}
+
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Module</p>
-        <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-          {modules.map((m, i) => {
-            const active = sel.moduleId === m.id
-            return (
-              <button
-                key={m.id}
-                onClick={() => setSel({ ...sel, moduleId: m.id })}
-                className={cn(
-                  "w-full text-left rounded-lg border px-3.5 py-2.5 transition-all flex items-center justify-between",
-                  "hover:border-primary/40 hover:bg-muted/50",
-                  active && "border-primary bg-primary/5 ring-1 ring-primary/30",
-                )}
-              >
-                <span className={cn("text-sm", active && "font-medium")}>{m.name}</span>
-                {active
-                  ? <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                  : <span className="text-xs text-muted-foreground shrink-0">#{i + 1}</span>
-                }
-              </button>
-            )
-          })}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Module Week</p>
+            {pastModules.length > 0 && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {pastModules.length} previous module{pastModules.length !== 1 ? "s" : ""} available
+              </p>
+            )}
+          </div>
+          {hiddenPastModules.length > 0 && (
+            <Button
+              type="button"
+              variant={showPastModules ? "ghost" : "outline"}
+              size="sm"
+              className={cn("shrink-0", !showPastModules && "border-primary/30 text-primary hover:bg-primary/5")}
+              onClick={() => setShowPastModules((value) => !value)}
+            >
+              {showPastModules ? "Hide" : "Show More"}
+            </Button>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          {visibleModules.map((module, index) => renderModuleButton(module, { isNext: index === 0 }))}
+          {hiddenPastModules.length > 0 && showPastModules && (
+            <div className="space-y-1.5 pt-2">
+              <p className="text-xs text-muted-foreground">Previous modules</p>
+              {hiddenPastModules.map(module => renderModuleButton(module, { isPast: true }))}
+            </div>
+          )}
         </div>
       </div>
-      <div className="flex justify-between">
-        <Button variant="ghost" onClick={onBack} className="gap-1.5"><ChevronLeft className="h-4 w-4" />Back</Button>
-        <Button onClick={onNext} disabled={!sel.sectionId || !sel.moduleId} className="gap-1.5">
+
+      <div className="flex items-center justify-between pt-2">
+        <Button variant="ghost" onClick={onBack} className="gap-1.5">
+          <ChevronLeft className="h-4 w-4" />Back
+        </Button>
+        <Button onClick={onNext} disabled={!sel.moduleId || (showSections && !sel.sectionId)} className="gap-1.5">
           Continue <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -292,8 +347,9 @@ function SessionSetupStep({ sel, setSel, onNext, onBack }: {
 
 // ── Step 3: Method ─────────────────────────────────────────────────────────────
 
-function MethodStep({ sel, setSel, onNext, onBack }: {
-  sel: Selection; setSel: (s: Selection) => void; onNext: () => void; onBack: () => void
+function MethodStep({ sel, setSel, onNext, onBack, isLoading }: {
+  sel: Selection; setSel: (s: Selection) => void
+  onNext: () => void; onBack: () => void; isLoading?: boolean
 }) {
   return (
     <div className="space-y-4">
@@ -301,40 +357,28 @@ function MethodStep({ sel, setSel, onNext, onBack }: {
       <div className="grid grid-cols-3 gap-3">
         {METHODS.map(m => {
           const active = sel.method === m.id
-          const Icon = m.icon
-          const SecIcon = m.secondaryIcon
           return (
-            <button
-              key={m.id}
-              onClick={() => setSel({ ...sel, method: m.id })}
+            <button key={m.id} onClick={() => setSel({ ...sel, method: m.id })}
               className={cn(
                 "flex flex-col items-center gap-3 rounded-xl border p-5 transition-all",
-                "hover:border-primary/40 hover:bg-muted/30",
-                active && `border-primary ring-1 ${m.ring} bg-primary/5`,
+                "hover:border-primary/40 hover:bg-muted/50",
+                active && `border-primary/60 ${m.bg} ring-2 ${m.ring}/20`,
               )}
             >
-              <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center relative", m.bg)}>
-                <Icon className={cn("h-6 w-6", m.color)} />
-                {SecIcon && (
-                  <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-background border flex items-center justify-center">
-                    <SecIcon className={cn("h-2.5 w-2.5", m.color)} />
-                  </span>
-                )}
+              <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", m.bg)}>
+                <m.icon className={cn("h-6 w-6", m.color)} />
               </div>
-              <p className={cn("text-sm font-medium", active && m.color)}>{m.label}</p>
-              <div className={cn(
-                "h-4 w-4 rounded-full border-2 flex items-center justify-center",
-                active ? "border-primary bg-primary" : "border-muted-foreground/30",
-              )}>
-                {active && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-              </div>
+              <span className={cn("text-sm font-semibold", active && m.color)}>{m.label}</span>
             </button>
           )
         })}
       </div>
-      <div className="flex justify-between pt-2">
-        <Button variant="ghost" onClick={onBack} className="gap-1.5"><ChevronLeft className="h-4 w-4" />Back</Button>
-        <Button onClick={onNext} disabled={!sel.method} className="gap-1.5">
+      <div className="flex items-center justify-between pt-2">
+        <Button variant="ghost" onClick={onBack} className="gap-1.5">
+          <ChevronLeft className="h-4 w-4" />Back
+        </Button>
+        <Button onClick={onNext} disabled={!sel.method || isLoading} className="gap-1.5">
+          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           Start Session <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -344,82 +388,55 @@ function MethodStep({ sel, setSel, onNext, onBack }: {
 
 // ── Manual add panel ───────────────────────────────────────────────────────────
 
-function ManualAddPanel({ roster, markedIds, onMark }: {
-  roster: { id: string; name: string; studentId: string }[]
-  markedIds: Set<string>
-  onMark: (s: { id: string; name: string; studentId: string }) => void
+function ManualAddPanel({ enrollments, markedUserIds, onMark }: {
+  enrollments: EnrollmentDto[]
+  markedUserIds: Set<string>
+  onMark: (userId: number | string, name: string) => void
 }) {
-  const [open,      setOpen]      = useState(false)
-  const [addSearch, setAddSearch] = useState("")
-  const [addId,     setAddId]     = useState("")
+  const [open, setOpen]   = useState(false)
+  const [query, setQuery] = useState("")
 
-  function addByStudentId() {
-    const id = addId.trim()
-    if (!id) return
-    const existing = roster.find(s => s.studentId === id)
-    onMark(existing ?? { id: `extra-${id}`, name: `Student #${id}`, studentId: id })
-    setAddId("")
-  }
-
-  const filtered = roster.filter(s =>
-    s.name.toLowerCase().includes(addSearch.toLowerCase()) || s.studentId.includes(addSearch)
+  const available = enrollments.filter(e =>
+    !markedUserIds.has(String(e.userId)) &&
+    e.userName.toLowerCase().includes(query.toLowerCase())
   )
 
   return (
-    <div className="rounded-xl border overflow-hidden">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors"
+    <div className="rounded-xl border">
+      <button onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors rounded-xl"
       >
         <UserPlus className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium flex-1 text-left">Add student manually</span>
-        <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <span>Manually add student</span>
+        <ChevronRight className={cn("h-4 w-4 text-muted-foreground ml-auto transition-transform", open && "rotate-90")} />
       </button>
+
       {open && (
-        <div className="border-t px-4 py-3 bg-muted/20 space-y-3">
-          <div className="flex gap-2">
+        <div className="border-t px-4 pb-4 space-y-3">
+          <div className="relative pt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" style={{ top: "calc(50% + 6px)" }} />
             <Input
-              className="h-8 text-sm font-mono flex-1"
-              placeholder="Student ID (e.g. 20190099)"
-              value={addId}
-              onChange={e => setAddId(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && addByStudentId()}
+              placeholder="Search by name..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="pl-9"
               autoFocus
             />
-            <Button size="sm" className="h-8 px-3 shrink-0" onClick={addByStudentId} disabled={!addId.trim()}>Add</Button>
           </div>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              className="h-8 text-sm pl-8"
-              placeholder="Search roster…"
-              value={addSearch}
-              onChange={e => setAddSearch(e.target.value)}
-            />
-          </div>
-          <div className="space-y-0.5 max-h-36 overflow-y-auto">
-            {filtered.map(s => {
-              const isMarked = markedIds.has(s.id)
-              return (
+          <div className="max-h-40 overflow-y-auto space-y-1">
+            {available.length === 0
+              ? <p className="text-xs text-muted-foreground text-center py-3">No students found</p>
+              : available.map(e => (
                 <div
-                  key={s.id}
-                  onClick={() => !isMarked && onMark(s)}
-                  className={cn(
-                    "flex items-center justify-between rounded-lg px-2.5 py-2 text-sm",
-                    isMarked ? "opacity-40" : "hover:bg-muted/60 cursor-pointer",
-                  )}
+                  key={String(e.userId)}
+                  onClick={() => onMark(e.userId, e.userName)}
+                  className="flex items-center justify-between rounded-lg px-2.5 py-2 text-sm hover:bg-muted/60 cursor-pointer"
                 >
-                  <div className="min-w-0">
-                    <span className="font-medium">{s.name}</span>
-                    <span className="text-xs text-muted-foreground font-mono ml-2">{s.studentId}</span>
-                  </div>
-                  {isMarked
-                    ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                    : <span className="text-xs text-primary font-medium shrink-0">Mark present</span>
-                  }
+                  <span className="font-medium">{e.userName}</span>
+                  <span className="text-xs text-primary font-medium">Mark present</span>
                 </div>
-              )
-            })}
+              ))
+            }
           </div>
         </div>
       )}
@@ -429,83 +446,86 @@ function ManualAddPanel({ roster, markedIds, onMark }: {
 
 // ── Live session ───────────────────────────────────────────────────────────────
 
-function LiveSession({ sel, onUpdate, onDone }: {
+function LiveSession({
+  sel, offering, selectedModule, section, enrollments, backendSessionId, attendances,
+  onClose, isClosing,
+}: {
   sel: Selection
-  onUpdate: (r: SessionRecord) => void
-  onDone:   (r: SessionRecord) => void
+  offering:          CourseOfferingDto | undefined
+  selectedModule:    ModuleDto         | undefined
+  section:           SectionDto        | undefined
+  enrollments:       EnrollmentDto[]
+  backendSessionId:  number | string
+  attendances:       AttendanceDto[]
+  onClose: () => void
+  isClosing: boolean
 }) {
-  const course  = ASSIGNED_COURSES.find(c => c.id === sel.courseId)!
-  const section = SECTIONS[sel.courseId!]?.find(s => s.id === sel.sectionId)
-  const module  = MODULES[sel.courseId!]?.find(m => m.id === sel.moduleId)!
-  const method  = METHODS.find(m => m.id === sel.method)!
-  const roster  = ROSTER[sel.courseId!] ?? []
+  const [ended,         setEnded]         = useState(false)
+  const [qrToken,       setQrToken]       = useState(() => `att://session/${backendSessionId}?ts=${Date.now()}`)
+  const [newUserIds,    setNewUserIds]     = useState<Set<string>>(new Set())
+  const [studentSearch, setStudentSearch] = useState("")
+  const prevAttCountRef = useRef(0)
 
-  const startedAt  = useState(() => new Date())[0]
-  const sessionId  = useState(() => `session-${Date.now()}`)[0]
-
-  const [marked,  setMarked]  = useState<MarkedStudent[]>([])
-  const [qrToken, setQrToken] = useState(`att://${sel.courseId}/${sel.moduleId}/${sel.sectionId}?ts=${Date.now()}`)
-  const [ended,   setEnded]   = useState(false)
-  const [newIds,  setNewIds]  = useState<Set<string>>(new Set())
   const timer = useTimer(!ended)
 
-  const markedIds    = new Set(marked.map(m => m.id))
-  const presentCount = marked.length
-  const totalCount   = roster.length
-  const pct          = totalCount ? Math.round((presentCount / totalCount) * 100) : 0
-  const absent       = roster.filter(s => !markedIds.has(s.id))
+  const { mutateAsync: markAttendance } = usePostApiAttendancesMark()
 
-  const buildRecord = useCallback((att: MarkedStudent[], status: "active" | "closed", endedAt: Date | null): SessionRecord => ({
-    id: sessionId,
-    courseCode:   course.code,
-    moduleName:   module.name,
-    sectionLabel: section?.label ?? "",
-    method:       sel.method!,
-    startedAt, endedAt, duration: timer, attendance: att, totalRoster: roster.length, status,
-  }), [sessionId, course.code, module.name, section, sel.method, startedAt, timer, roster.length])
-
-  function addMark(s: { id: string; name: string; studentId: string }, via: "auto" | "manual") {
-    if (markedIds.has(s.id)) return
-    setMarked(prev => {
-      const next = [...prev, { ...s, markedAt: new Date(), via }]
-      onUpdate(buildRecord(next, ended ? "closed" : "active", null))
-      return next
-    })
-    setNewIds(prev => { const n = new Set(prev); n.add(s.id); return n })
-    setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(s.id); return n }), 800)
-  }
-
-  function unmark(id: string) {
-    setMarked(prev => {
-      const next = prev.filter(m => m.id !== id)
-      onUpdate(buildRecord(next, "closed", new Date()))
-      return next
-    })
-  }
-
-  // Simulate auto-marks
+  // Highlight newly arrived attendees
   useEffect(() => {
-    if (ended || !absent.length) return
-    const id = setTimeout(() => addMark(absent[Math.floor(Math.random() * absent.length)], "auto"), 2000 + Math.random() * 3000)
-    return () => clearTimeout(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marked, ended])
+    if (attendances.length > prevAttCountRef.current) {
+      const prev = prevAttCountRef.current
+      const newOnes = attendances.slice(prev).map(a => String(a.userId))
+      setNewUserIds(ids => {
+        const next = new Set(ids)
+        newOnes.forEach(id => next.add(id))
+        return next
+      })
+      setTimeout(() => {
+        setNewUserIds(ids => {
+          const next = new Set(ids)
+          newOnes.forEach(id => next.delete(id))
+          return next
+        })
+      }, 800)
+    }
+    prevAttCountRef.current = attendances.length
+  }, [attendances])
 
-  function openQRTab() {
-    const params = new URLSearchParams({ t: qrToken, c: course.code, m: module.name, s: section?.label ?? "" })
-    window.open(`/qr?${params}`, "_blank", "noopener")
+  const markedUserIds = new Set(attendances.map(a => String(a.userId)))
+  const presentList   = attendances.filter(a => a.status === "Present" || a.status === "Late")
+  const absentList    = enrollments.filter(e => !markedUserIds.has(String(e.userId)))
+  const pct           = enrollments.length ? Math.round((presentList.length / enrollments.length) * 100) : 0
+
+  async function onMark(userId: number | string, name: string) {
+    try {
+      await markAttendance({
+        data: {
+          userId,
+          sessionId: backendSessionId,
+          status:    AttendanceStatus.Present,
+          method:    AttendanceMethod.Manual,
+        },
+      })
+    } catch {
+      // ignore - polling will pick it up
+    }
   }
 
   function refreshQR() {
-    setQrToken(`att://${sel.courseId}/${sel.moduleId}/${sel.sectionId}?ts=${Date.now()}`)
+    setQrToken(`att://session/${backendSessionId}?ts=${Date.now()}`)
   }
 
-  function endSession() {
-    setEnded(true)
-    onUpdate(buildRecord(marked, "closed", new Date()))
+  function openQRTab() {
+    const params = new URLSearchParams({
+      t: qrToken,
+      c: offering?.courseCode ?? "",
+      m: selectedModule?.title ?? "",
+      s: section?.name ?? "",
+    })
+    window.open(`/qr?${params}`, "_blank", "noopener")
   }
 
-  // ── Summary ────────────────────────────────────────────────────────────────
+  // ── Post-session summary ────────────────────────────────────────────────────
   if (ended) {
     return (
       <div className="space-y-5 max-w-lg mx-auto">
@@ -516,14 +536,14 @@ function LiveSession({ sel, onUpdate, onDone }: {
           <div>
             <h3 className="text-xl font-bold">Session Complete</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              {course.code}{section ? ` · ${section.label}` : ""} · {module.name}
+              {offering?.courseCode}{section ? ` · ${section.name}` : ""} · {selectedModule?.title}
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3 w-full">
             {[
-              { label: "Present",  value: presentCount,              cls: "text-primary" },
-              { label: "Absent",   value: totalCount - presentCount, cls: "text-muted-foreground" },
-              { label: "Duration", value: timer,                      cls: "" },
+              { label: "Present",  value: presentList.length,                    cls: "text-primary" },
+              { label: "Absent",   value: enrollments.length - presentList.length, cls: "text-muted-foreground" },
+              { label: "Duration", value: timer,                                   cls: "" },
             ].map(item => (
               <div key={item.label} className="rounded-xl border p-4 text-center">
                 <p className={cn("text-2xl font-bold", item.cls)}>{item.value}</p>
@@ -533,48 +553,40 @@ function LiveSession({ sel, onUpdate, onDone }: {
           </div>
         </div>
 
-        {/* Edit attendance */}
+        {/* Attendance roster */}
         <div className="rounded-xl border overflow-hidden">
           <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center gap-2">
             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Edit Attendance</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Attendance</span>
           </div>
-          <div className="divide-y max-h-60 overflow-y-auto">
-            {roster.map(s => {
-              const isPresent = markedIds.has(s.id)
-              return (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{s.name}</p>
-                    <p className="text-[11px] text-muted-foreground font-mono">{s.studentId}</p>
-                  </div>
-                  <button
-                    onClick={() => isPresent ? unmark(s.id) : addMark(s, "manual")}
-                    className={cn(
-                      "text-xs font-medium px-3 py-1 rounded-lg border transition-colors",
-                      isPresent
-                        ? "border-primary/30 text-primary bg-primary/5 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-                        : "border-border text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5",
-                    )}
-                  >
-                    {isPresent ? "Present ✓" : "Absent"}
-                  </button>
-                </div>
-              )
-            })}
+          <div className="p-4">
+            <AttendanceRoster
+              present={presentList.map(a => ({
+                id: String(a.userId), name: a.userName,
+                studentId: String(a.userId),
+                via: a.method === AttendanceMethod.Manual ? ("manual" as const) : ("auto" as const),
+                markedAt: a.recordedAt ?? undefined,
+              }))}
+              absent={absentList.map(e => ({
+                id: String(e.userId), name: e.userName,
+                studentId: String(e.userId),
+              }))}
+              mode="full"
+            />
           </div>
         </div>
 
-        <ManualAddPanel roster={roster} markedIds={markedIds} onMark={s => addMark(s, "manual")} />
+        <ManualAddPanel enrollments={enrollments} markedUserIds={markedUserIds} onMark={onMark} />
 
-        <Button className="w-full" onClick={() => onDone(buildRecord(marked, "closed", new Date()))}>
+        <Button className="w-full gap-2" onClick={onClose} disabled={isClosing}>
+          {isClosing && <Loader2 className="h-4 w-4 animate-spin" />}
           Save & Close
         </Button>
       </div>
     )
   }
 
-  // ── Active ─────────────────────────────────────────────────────────────────
+  // ── Active session ──────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* Stats */}
@@ -583,8 +595,8 @@ function LiveSession({ sel, onUpdate, onDone }: {
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-              <span className="font-semibold">{presentCount}</span>
-              <span className="text-muted-foreground">/ {totalCount} present</span>
+              <span className="font-semibold">{presentList.length}</span>
+              <span className="text-muted-foreground">/ {enrollments.length} present</span>
             </div>
             <span className={cn("font-bold tabular-nums",
               pct >= 80 ? "text-primary" : pct >= 60 ? "text-amber-500" : "text-muted-foreground"
@@ -598,7 +610,7 @@ function LiveSession({ sel, onUpdate, onDone }: {
         </div>
       </div>
 
-      {/* Method + roster */}
+      {/* QR / NFC + roster */}
       <div className="grid grid-cols-5 gap-3" style={{ minHeight: 280 }}>
         <div className="col-span-3 rounded-xl border bg-card flex flex-col items-center justify-center p-5 gap-3">
           {(sel.method === "qr" || sel.method === "qr-wifi") && (
@@ -638,39 +650,56 @@ function LiveSession({ sel, onUpdate, onDone }: {
           )}
         </div>
 
+        {/* Student list */}
         <div className="col-span-2 rounded-xl border bg-card overflow-hidden flex flex-col">
           <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between shrink-0">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Students</span>
-            <span className="text-xs text-muted-foreground">{presentCount}/{totalCount}</span>
+            <span className="text-xs text-muted-foreground">{presentList.length}/{enrollments.length}</span>
+          </div>
+          {/* Search */}
+          <div className="px-2 py-1.5 border-b shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <input
+                placeholder="Search student..."
+                value={studentSearch}
+                onChange={e => setStudentSearch(e.target.value)}
+                className="w-full pl-6 pr-2 py-1 text-[11px] bg-muted/40 border border-border/50 rounded-md outline-none focus:border-primary/40 focus:bg-background transition-colors"
+              />
+            </div>
           </div>
           <div className="overflow-y-auto flex-1 divide-y">
-            {[...marked].reverse().map(s => (
-              <div key={s.id} className={cn("flex items-center gap-2 px-3 py-2 transition-colors duration-300", newIds.has(s.id) && "bg-primary/10")}>
+            {[...presentList].reverse()
+              .filter(a => a.userName.toLowerCase().includes(studentSearch.toLowerCase()))
+              .map(a => (
+              <div key={String(a.userId)} className={cn("flex items-center gap-2 px-3 py-2 transition-colors duration-300", newUserIds.has(String(a.userId)) && "bg-primary/10")}>
                 <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-xs font-medium truncate flex-1">{s.name}</span>
-                {s.via === "manual" && <span className="text-[9px] border rounded px-1 text-muted-foreground shrink-0">M</span>}
+                <span className="text-xs font-medium truncate flex-1">{a.userName}</span>
+                {a.method === AttendanceMethod.Manual && <span className="text-[9px] border rounded px-1 text-muted-foreground shrink-0">M</span>}
               </div>
             ))}
-            {absent.map(s => (
-              <div key={s.id} className="flex items-center gap-2 px-3 py-2 group">
+            {absentList
+              .filter(e => e.userName.toLowerCase().includes(studentSearch.toLowerCase()))
+              .map(e => (
+              <div key={String(e.userId)} className="flex items-center gap-2 px-3 py-2 group">
                 <Circle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
-                <span className="text-xs text-muted-foreground truncate flex-1">{s.name}</span>
-                <button onClick={() => addMark(s, "manual")} className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline shrink-0">
+                <span className="text-xs text-muted-foreground truncate flex-1">{e.userName}</span>
+                <button onClick={() => onMark(e.userId, e.userName)} className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline shrink-0">
                   Mark
                 </button>
               </div>
             ))}
-            {absent.length === 0 && presentCount > 0 && (
+            {absentList.length === 0 && presentList.length > 0 && (
               <div className="px-3 py-4 text-center text-xs text-primary font-medium">All present 🎉</div>
             )}
           </div>
         </div>
       </div>
 
-      <ManualAddPanel roster={roster} markedIds={markedIds} onMark={s => addMark(s, "manual")} />
+      <ManualAddPanel enrollments={enrollments} markedUserIds={markedUserIds} onMark={onMark} />
 
       <div className="flex justify-end">
-        <Button variant="destructive" size="sm" onClick={endSession} className="gap-2">
+        <Button variant="destructive" size="sm" onClick={() => setEnded(true)} className="gap-2">
           <StopCircle className="h-4 w-4" />End Session
         </Button>
       </div>
@@ -682,21 +711,129 @@ function LiveSession({ sel, onUpdate, onDone }: {
 
 export default function AttendancePage() {
   const router = useRouter()
-  const [step, setStep] = useState<Step>("course")
-  const [sel,  setSel]  = useState<Selection>({ courseId: null, sectionId: null, moduleId: null, method: null })
-  const [sessions, setSessions] = useState<SessionRecord[]>([])
+  const { userId, currentUser } = useCurrentUser()
 
-  function handleUpdate(record: SessionRecord) {
-    setSessions(prev => {
-      const idx = prev.findIndex(s => s.id === record.id)
-      if (idx === -1) return [...prev, record]
-      const next = [...prev]; next[idx] = record; return next
-    })
+  const [step, setStep]               = useState<Step>("course")
+  const [sel,  setSel]                = useState<Selection>({ courseId: null, sectionId: null, moduleId: null, method: null })
+  const [backendSessionId, setBackendSessionId] = useState<number | string | null>(null)
+  const [isOpening, setIsOpening]     = useState(false)
+  const [isClosing, setIsClosing]     = useState(false)
+
+  // ── Fetch data ──────────────────────────────────────────────────────────────
+  const { data: allOfferings, isLoading: loadingOfferings } = useGetApiCourseOfferings()
+  const { data: staffRecords, isLoading: loadingStaff }     = useGetApiCourseOfferingStaffs()
+
+  const myOfferingIds = new Set(
+    staffRecords?.filter(s => String(s.userId) === String(userId)).map(s => String(s.courseOfferingId)) ?? []
+  )
+  const myOfferings = allOfferings?.filter(o => myOfferingIds.has(String(o.id))) ?? []
+
+  // Demo mode: no backend courses found after loading - use mock data
+  const isMockMode = !loadingOfferings && !loadingStaff && myOfferings.length === 0
+
+  const { data: apiModules, isLoading: loadingModules } = useGetApiModules(
+    { courseOfferingId: sel.courseId! },
+    { query: { enabled: !!sel.courseId && !isMockMode } }
+  )
+  const { data: apiSections, isLoading: loadingSections } = useGetApiSections(
+    { courseOfferingId: sel.courseId! },
+    { query: { enabled: !!sel.courseId && !isMockMode } }
+  )
+  const { data: apiEnrollmentsAll } = useGetApiEnrollments(
+    { courseOfferingId: sel.courseId! },
+    { query: { enabled: !!sel.courseId && !isMockMode } }
+  )
+  const { data: apiSessions = [], isLoading: loadingSessions } = useGetApiSessions(
+    { courseOfferingId: sel.courseId! },
+    { query: { enabled: !!sel.courseId && !isMockMode } }
+  )
+
+  // Effective data: real API or mock fallback
+  const effectiveOfferings = isMockMode ? MOCK_OFFERINGS : myOfferings
+  const effectiveSections  = isMockMode
+    ? (sel.courseId ? (MOCK_SECTIONS[String(sel.courseId)] ?? []) : [])
+    : (apiSections ?? [])
+  const effectiveModules   = isMockMode
+    ? (sel.courseId ? (MOCK_MODULES[String(sel.courseId)] ?? []) : [])
+    : (apiModules ?? [])
+  const effectiveSessions  = isMockMode
+    ? (sel.courseId
+        ? MOCK_SESSIONS.filter(session => effectiveModules.some(module => String(module.id) === String(session.moduleId)))
+        : [])
+    : apiSessions
+
+  const effectiveEnrollmentsAll = isMockMode
+    ? (sel.courseId ? makeMockEnrollments(Number(sel.courseId), effectiveSections, 45) : [])
+    : (apiEnrollmentsAll ?? [])
+
+  // Filter enrollments by section client-side
+  const enrollments = sel.sectionId
+    ? effectiveEnrollmentsAll.filter(e => String(e.sectionId) === String(sel.sectionId))
+    : effectiveEnrollmentsAll
+
+  // Live attendance polling (every 3s while session is open)
+  const { data: liveAttendances } = useGetApiAttendancesSessionSessionId(
+    backendSessionId!,
+    { query: { enabled: !!backendSessionId, refetchInterval: 3000 } }
+  )
+
+  // ── Mutations ───────────────────────────────────────────────────────────────
+  const { mutateAsync: openSession }  = usePostApiSessions()
+  const { mutateAsync: closeSession } = usePostApiSessionsIdClose()
+
+  // ── Timer ───────────────────────────────────────────────────────────────────
+  const timer = useTimer(step === "live" && !!backendSessionId)
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  const offering = effectiveOfferings.find(o => o.id === sel.courseId)
+  const selectedModule = effectiveModules.find(m => m.id === sel.moduleId)
+  const section  = effectiveSections.find(s => s.id === sel.sectionId)
+
+  const [startError, setStartError] = useState<string | null>(null)
+
+  async function handleStartSession() {
+    if (!sel.moduleId || !sel.method || (!userId && !isMockMode)) return
+    const openingUserId = userId
+    setIsOpening(true)
+    setStartError(null)
+    try {
+      if (isMockMode) {
+        setBackendSessionId(`demo-${sel.moduleId}-${sel.sectionId ?? "all"}-${Date.now()}`)
+        setStep("live")
+        return
+      }
+      if (openingUserId == null) return
+
+      const sessionId = await openSession({
+        data: {
+          moduleId:        sel.moduleId,
+          sectionId:       sel.sectionId,
+          selectedMethod:  METHOD_MAP[sel.method],
+          openedByUserId:  openingUserId,
+        },
+      })
+      setBackendSessionId(sessionId)
+      setStep("live")
+    } catch {
+      setStartError(
+        isMockMode
+          ? "Demo mode: No backend record for these courses. To start a real session, courses must be assigned to your account."
+          : "Failed to start session. Please check your backend connection."
+      )
+    } finally {
+      setIsOpening(false)
+    }
   }
 
-  function handleDone(record: SessionRecord) {
-    handleUpdate(record)
-    router.push("/overview")
+  async function handleClose() {
+    if (!backendSessionId) return
+    setIsClosing(true)
+    try {
+      await closeSession({ id: backendSessionId })
+      router.push(isMockMode ? "/attendance" : `/sessions/${encodeURIComponent(String(backendSessionId))}`)
+    } finally {
+      setIsClosing(false)
+    }
   }
 
   const isLive = step === "live"
@@ -706,8 +843,7 @@ export default function AttendancePage() {
       {/* Page header */}
       <div className="flex items-center gap-4">
         {!isLive && (
-          <button
-            onClick={() => router.push("/overview")}
+          <button onClick={() => router.push("/overview")}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />Back
@@ -719,25 +855,69 @@ export default function AttendancePage() {
           </div>
           <div>
             <h1 className="text-lg font-bold leading-tight">AttendancePlease</h1>
-            {isLive && (
+            {isLive && offering && (
               <p className="text-xs text-muted-foreground">
-                {ASSIGNED_COURSES.find(c => c.id === sel.courseId)?.code}
-                {SECTIONS[sel.courseId!]?.find(s => s.id === sel.sectionId)?.label ? ` · ${SECTIONS[sel.courseId!]?.find(s => s.id === sel.sectionId)?.label}` : ""}
-                {" · "}{MODULES[sel.courseId!]?.find(m => m.id === sel.moduleId)?.name}
+                {offering.courseCode}
+                {section ? ` · ${section.name}` : ""}
+                {selectedModule  ? ` · ${selectedModule.title}` : ""}
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Step indicator */}
       {!isLive && <StepIndicator current={step} />}
 
-      {/* Content */}
-      {step === "course"        && <CourseStep       sel={sel} setSel={setSel} onNext={() => setStep("session-setup")} />}
-      {step === "session-setup" && <SessionSetupStep sel={sel} setSel={setSel} onNext={() => setStep("method")} onBack={() => setStep("course")} />}
-      {step === "method"        && <MethodStep       sel={sel} setSel={setSel} onNext={() => setStep("live")} onBack={() => setStep("session-setup")} />}
-      {step === "live"          && <LiveSession      sel={sel} onUpdate={handleUpdate} onDone={handleDone} />}
+      {step === "course" && (
+        <CourseStep
+          offerings={effectiveOfferings}
+          sel={sel} setSel={setSel}
+          onNext={() => setStep("session-setup")}
+          isLoading={loadingOfferings || loadingStaff}
+          isMockMode={isMockMode}
+        />
+      )}
+
+      {step === "session-setup" && (
+        <SessionSetupStep
+          modules={effectiveModules} sections={effectiveSections}
+          sessions={effectiveSessions}
+          sel={sel} setSel={setSel}
+          onNext={() => setStep("method")}
+          onBack={() => setStep("course")}
+          isLoading={loadingModules || loadingSections || loadingSessions}
+        />
+      )}
+
+      {step === "method" && (
+        <>
+          <MethodStep
+            sel={sel} setSel={setSel}
+            onNext={handleStartSession}
+            onBack={() => setStep("session-setup")}
+            isLoading={isOpening}
+          />
+          {startError && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {startError}
+            </div>
+          )}
+        </>
+      )}
+
+      {step === "live" && backendSessionId && (
+        <LiveSession
+          sel={sel}
+          offering={offering}
+          selectedModule={selectedModule}
+          section={section}
+          enrollments={enrollments}
+          backendSessionId={backendSessionId}
+          attendances={liveAttendances ?? []}
+          onClose={handleClose}
+          isClosing={isClosing}
+        />
+      )}
     </div>
   )
 }
