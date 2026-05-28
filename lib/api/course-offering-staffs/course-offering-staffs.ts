@@ -40,7 +40,7 @@ export const postApiCourseOfferingStaffs = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<CourseOfferingStaffDto>(
       {url: `/api/CourseOfferingStaffs`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: assignStaffCommand, signal

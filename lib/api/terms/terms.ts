@@ -40,7 +40,7 @@ export const postApiTerms = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<TermDto>(
       {url: `/api/Terms`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createTermCommand, signal
@@ -184,7 +184,7 @@ export const putApiTermsId = (
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<TermDto>(
       {url: `/api/Terms/${id}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateTermCommand, signal

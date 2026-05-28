@@ -41,7 +41,7 @@ export const postApiSections = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<SectionDto>(
       {url: `/api/Sections`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createSectionCommand, signal
@@ -186,7 +186,7 @@ export const putApiSectionsId = (
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<SectionDto>(
       {url: `/api/Sections/${id}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateSectionCommand, signal

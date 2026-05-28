@@ -10,4 +10,6 @@ export interface UpdateCourseCommand {
   id: number | string;
   code: string;
   title: string;
+  /** @nullable */
+  description: string | null;
 }

@@ -40,7 +40,7 @@ export const postApiCourseOfferings = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<CourseOfferingDto>(
       {url: `/api/CourseOfferings`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createCourseOfferingCommand, signal
@@ -184,7 +184,7 @@ export const putApiCourseOfferingsId = (
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<CourseOfferingDto>(
       {url: `/api/CourseOfferings/${id}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateCourseOfferingCommand, signal

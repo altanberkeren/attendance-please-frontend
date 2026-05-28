@@ -5,10 +5,11 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface UpdateTermCommand {
+export interface AuthUserResponse {
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   id: number | string;
+  email: string;
   name: string;
-  startDate: string;
-  endDate: string;
+  role: string;
+  roles: string[];
 }

@@ -41,7 +41,7 @@ export const postApiModules = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<ModuleDto>(
       {url: `/api/Modules`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createModuleCommand, signal
@@ -186,7 +186,7 @@ export const putApiModulesId = (
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<ModuleDto>(
       {url: `/api/Modules/${id}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateModuleCommand, signal

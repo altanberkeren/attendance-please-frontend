@@ -41,7 +41,7 @@ export const postApiEnrollments = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<EnrollmentDto>(
       {url: `/api/Enrollments`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: enrollStudentCommand, signal
@@ -186,7 +186,7 @@ export const putApiEnrollmentsIdSection = (
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<EnrollmentDto>(
       {url: `/api/Enrollments/${id}/section`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
       data: updateEnrollmentSectionCommand, signal

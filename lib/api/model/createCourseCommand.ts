@@ -8,4 +8,6 @@
 export interface CreateCourseCommand {
   code: string;
   title: string;
+  /** @nullable */
+  description: string | null;
 }

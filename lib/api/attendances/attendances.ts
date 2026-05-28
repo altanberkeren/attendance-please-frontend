@@ -45,7 +45,7 @@ export const postApiAttendancesMark = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<AttendanceDto>(
       {url: `/api/Attendances/mark`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: markAttendanceCommand, signal

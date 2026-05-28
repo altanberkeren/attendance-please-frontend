@@ -40,7 +40,7 @@ export const postApiSessions = (
 ) => {
 
 
-      return customInstance<number | string>(
+      return customInstance<SessionDto>(
       {url: `/api/Sessions`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: openSessionCommand, signal
@@ -184,7 +184,7 @@ export const postApiSessionsIdClose = (
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<SessionDto>(
       {url: `/api/Sessions/${id}/close`, method: 'POST', signal
     },
       );
@@ -239,7 +239,7 @@ const {mutation: mutationOptions} = options ?
 ) => {
 
 
-      return customInstance<void>(
+      return customInstance<SessionDto>(
       {url: `/api/Sessions/${id}/cancel`, method: 'POST', signal
     },
       );

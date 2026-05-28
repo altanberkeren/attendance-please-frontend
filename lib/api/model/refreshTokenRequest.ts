@@ -5,8 +5,6 @@
  * OpenAPI spec version: 1.0.0
  */
 
-export interface CreateTermCommand {
-  name: string;
-  startDate: string;
-  endDate: string;
+export interface RefreshTokenRequest {
+  refreshToken: string;
 }
