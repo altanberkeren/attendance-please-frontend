@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import QRCode from "react-qr-code"
 import { useAuth } from "@/hooks/use-auth"
-import { getUniversityAccountType } from "@/lib/auth/university-account"
+import { hasAnyRole } from "@/lib/auth/roles"
 import { useGetApiAttendancesSessionSessionId, usePostApiAttendancesMark } from "@/lib/api/attendances/attendances"
 import { AttendanceMethod } from "@/lib/api/model/attendanceMethod"
 import { AttendanceStatus } from "@/lib/api/model/attendanceStatus"
@@ -119,11 +119,7 @@ export default function AttendancePage() {
   const [selectedSessionIdInput, setSelectedSessionIdInput] = useState("")
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
-  const accountType = getUniversityAccountType(user?.email ?? "")
-  const canManageAttendance =
-    accountType === "staff" ||
-    user?.roles.includes("Staff") ||
-    user?.roles.includes("Admin")
+  const canManageAttendance = hasAnyRole(user, ["Staff", "Admin"])
 
   const courseOfferingId = toPositiveInt(courseOfferingIdInput)
   const selectedSessionId = toPositiveInt(selectedSessionIdInput)

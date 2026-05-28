@@ -1,5 +1,6 @@
 "use client"
 
+import type { ComponentType } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -13,6 +14,8 @@ import {
   LogOut,
   User,
   ChevronUp,
+  GraduationCap,
+  ClipboardCheck,
 } from "lucide-react"
 import {
   Sidebar,
@@ -37,36 +40,100 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { useProfilePhoto } from "@/hooks/use-profile-photo"
+import { getPrimaryRole } from "@/lib/auth/roles"
 
-const NAV_GROUPS = [
+type NavItem = {
+  title: string
+  href: string
+  icon: ComponentType<{ className?: string }>
+}
+
+type NavGroup = {
+  label: string
+  items: NavItem[]
+}
+
+const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
     label: "Main",
-    items: [
-      { title: "Overview",  href: "/overview",  icon: LayoutDashboard },
-    ],
+    items: [{ title: "Overview", href: "/overview", icon: LayoutDashboard }],
   },
   {
-    label: "Academic",
+    label: "Administration",
     items: [
-      { title: "Courses",          href: "/courses",          icon: BookOpen },
-      { title: "Terms",            href: "/terms",            icon: CalendarDays },
+      { title: "Courses", href: "/courses", icon: BookOpen },
+      { title: "Terms", href: "/terms", icon: CalendarDays },
       { title: "Course Offerings", href: "/course-offerings", icon: Layers },
-      { title: "Attendance",       href: "/attendance",       icon: QrCode },
+      { title: "Attendance", href: "/attendance", icon: QrCode },
     ],
   },
   {
     label: "Account",
-    items: [
-      { title: "Settings", href: "/settings", icon: Settings },
-    ],
+    items: [{ title: "Settings", href: "/settings", icon: Settings }],
   },
 ]
+
+const STAFF_NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Main",
+    items: [{ title: "Overview", href: "/overview", icon: LayoutDashboard }],
+  },
+  {
+    label: "Teaching",
+    items: [
+      { title: "My Courses", href: "/course-offerings", icon: GraduationCap },
+      { title: "Attendance", href: "/attendance", icon: QrCode },
+    ],
+  },
+  {
+    label: "Account",
+    items: [{ title: "Settings", href: "/settings", icon: Settings }],
+  },
+]
+
+const STUDENT_NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Main",
+    items: [{ title: "Overview", href: "/overview", icon: LayoutDashboard }],
+  },
+  {
+    label: "Academic",
+    items: [
+      { title: "My Courses", href: "/my-courses", icon: GraduationCap },
+      { title: "My Attendance", href: "/my-attendance", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Account",
+    items: [{ title: "Settings", href: "/settings", icon: Settings }],
+  },
+]
+
+const FALLBACK_NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Main",
+    items: [{ title: "Overview", href: "/overview", icon: LayoutDashboard }],
+  },
+  {
+    label: "Account",
+    items: [{ title: "Settings", href: "/settings", icon: Settings }],
+  },
+]
+
+function getNavGroups(user: Parameters<typeof getPrimaryRole>[0]): NavGroup[] {
+  const role = getPrimaryRole(user)
+  if (role === "Admin") return ADMIN_NAV_GROUPS
+  if (role === "Staff") return STAFF_NAV_GROUPS
+  if (role === "Student") return STUDENT_NAV_GROUPS
+  return FALLBACK_NAV_GROUPS
+}
 
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { photoUrl } = useProfilePhoto()
+  const navGroups = getNavGroups(user)
 
   async function handleSignOut() {
     await signOut()
@@ -99,7 +166,7 @@ export function AppSidebar() {
 
       {/* ── Navigation groups ── */}
       <SidebarContent className="px-2 py-3">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel className="text-[10px] font-semibold tracking-wider uppercase text-sidebar-foreground/40 px-2 mb-1">
               {group.label}

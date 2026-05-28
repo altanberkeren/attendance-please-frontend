@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useAuth } from "@/hooks/use-auth"
 import { useTheme } from "@/hooks/use-theme"
+import { canAccessDashboardRoute, getDefaultDashboardPath } from "@/lib/auth/routes"
 
 const ROUTE_LABELS: Record<string, string> = {
   "/overview": "Overview",
@@ -25,6 +26,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "/terms": "Terms",
   "/course-offerings": "Course Offerings",
   "/attendance": "Attendance",
+  "/my-courses": "My Courses",
+  "/my-attendance": "My Attendance",
   "/settings": "Settings",
 }
 
@@ -89,13 +92,21 @@ function DashboardBreadcrumb() {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { isAuthenticated, isReady } = useAuth()
+  const pathname = usePathname()
+  const { isAuthenticated, isReady, user } = useAuth()
 
   useEffect(() => {
-    if (isReady && !isAuthenticated) {
+    if (!isReady) return
+
+    if (!isAuthenticated) {
       router.replace("/login")
+      return
     }
-  }, [isAuthenticated, isReady, router])
+
+    if (!canAccessDashboardRoute(pathname, user)) {
+      router.replace(getDefaultDashboardPath(user))
+    }
+  }, [isAuthenticated, isReady, pathname, router, user])
 
   if (!isReady) {
     return (
@@ -117,7 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !canAccessDashboardRoute(pathname, user)) {
     return null
   }
 
