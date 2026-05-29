@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,7 +83,7 @@ function InlineCourseForm({
         <button
           type="button"
           onClick={onCancel}
-          className="text-muted-foreground hover:text-foreground"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -153,7 +153,7 @@ function InlineTermForm({
         <button
           type="button"
           onClick={onCancel}
-          className="text-muted-foreground hover:text-foreground"
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -210,6 +210,152 @@ function InlineTermForm({
         Add Term
       </Button>
     </div>
+  );
+}
+
+// ── Term Edit Dialog ──────────────────────────────────────────────────────────
+
+function TermEditDialog({
+  open,
+  onOpenChange,
+  term,
+  onSave,
+  onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  term: Term | null;
+  onSave: (t: Term) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  useEffect(() => {
+    if (!open || !term) return;
+    setName(term.name);
+    setStartDate(term.startDate);
+    setEndDate(term.endDate);
+  }, [open, term]);
+
+  if (!term) return null;
+
+  const valid = name.trim() && startDate && endDate;
+
+  function handleSave() {
+    if (!valid || !term) return;
+    onSave({ ...term, name: name.trim(), startDate, endDate });
+    onOpenChange(false);
+  }
+
+  function handleDelete() {
+    if (!term) return;
+    onDelete(term.id);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Term</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <div className="space-y-2">
+            <Label>
+              Term Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Fall 2025"
+              autoFocus
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>
+                Start Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                End Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="sm:justify-between">
+          <Button
+            variant="outline"
+            className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
+            onClick={handleDelete}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!valid}>
+              Save
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Delete Confirmation Dialog ────────────────────────────────────────────────
+
+type DeleteRequest = {
+  kind: "offering" | "term";
+  id: string;
+  title: string;
+  description: string;
+};
+
+function DeleteConfirmationDialog({
+  request,
+  onOpenChange,
+  onConfirm,
+}: {
+  request: DeleteRequest | null;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={request !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{request?.title ?? "Delete item?"}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">{request?.description}</p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -392,6 +538,11 @@ export default function CourseOfferingsPage() {
   const [terms, setTerms] = useState<Term[]>(MOCK_TERMS);
   const [dialogOpen, setDialog] = useState(false);
   const [editing, setEditing] = useState<CourseOffering | null>(null);
+  const [termDialogOpen, setTermDialogOpen] = useState(false);
+  const [editingTerm, setEditingTerm] = useState<Term | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(
+    null,
+  );
 
   function openCreate() {
     setEditing(null);
@@ -401,14 +552,56 @@ export default function CourseOfferingsPage() {
     setEditing(o);
     setDialog(true);
   }
-  function handleDelete(id: string) {
-    setOfferings((p) => p.filter((o) => o.id !== id));
+  function requestOfferingDelete(id: string) {
+    const offering = offerings.find((o) => o.id === id);
+    setDeleteRequest({
+      kind: "offering",
+      id,
+      title: "Delete course offering?",
+      description: `Delete ${offering?.courseName ?? "this course offering"}? This action cannot be undone.`,
+    });
   }
   function handleCourseCreate(c: Course) {
     setCourses((p) => [...p, c]);
   }
   function handleTermCreate(t: Term) {
     setTerms((p) => [...p, t]);
+  }
+  function openTermEdit(term: Term) {
+    setEditingTerm(term);
+    setTermDialogOpen(true);
+  }
+  function handleTermUpdate(term: Term) {
+    setTerms((p) => p.map((t) => (t.id === term.id ? term : t)));
+    setOfferings((p) =>
+      p.map((o) => (o.termId === term.id ? { ...o, termName: term.name } : o)),
+    );
+  }
+  function requestTermDelete(id: string) {
+    const term = terms.find((t) => t.id === id);
+    const offeringCount = offerings.filter((o) => o.termId === id).length;
+    setDeleteRequest({
+      kind: "term",
+      id,
+      title: "Delete term?",
+      description: `Delete ${term?.name ?? "this term"}? This will also delete ${offeringCount} course offering${offeringCount === 1 ? "" : "s"} under it.`,
+    });
+  }
+  function confirmDeleteRequest() {
+    if (!deleteRequest) return;
+
+    if (deleteRequest.kind === "offering") {
+      setOfferings((p) => p.filter((o) => o.id !== deleteRequest.id));
+    } else {
+      setTerms((p) => p.filter((t) => t.id !== deleteRequest.id));
+      setOfferings((p) => p.filter((o) => o.termId !== deleteRequest.id));
+      if (editingTerm?.id === deleteRequest.id) {
+        setTermDialogOpen(false);
+        setEditingTerm(null);
+      }
+    }
+
+    setDeleteRequest(null);
   }
 
   function handleSubmit(courseId: string, termId: string) {
@@ -448,8 +641,12 @@ export default function CourseOfferingsPage() {
     }
   }
 
-  const grouped = groupBy(offerings, (o) => o.termName);
-  const termOrder = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+  const grouped = groupBy(offerings, (o) => o.termId);
+  const termOrder = Object.keys(grouped).sort((a, b) => {
+    const aName = terms.find((t) => t.id === a)?.name ?? grouped[a][0].termName;
+    const bName = terms.find((t) => t.id === b)?.name ?? grouped[b][0].termName;
+    return bName.localeCompare(aName);
+  });
 
   return (
     <div className="space-y-8 max-w-screen-xl">
@@ -481,119 +678,143 @@ export default function CourseOfferingsPage() {
         </div>
       )}
 
-      {termOrder.map((term) => (
-        <div key={term} className="space-y-3">
-          <div className="flex items-center gap-3">
-            <CalendarCheck className="h-4 w-4 text-primary" />
-            <h2 className="text-base font-semibold">{term}</h2>
-            <Badge variant="secondary" className="text-xs">
-              {grouped[term].length} offering
-              {grouped[term].length !== 1 ? "s" : ""}
-            </Badge>
-            <div className="flex-1 h-px bg-border" />
-          </div>
+      {termOrder.map((termId) => {
+        const term = terms.find((t) => t.id === termId) ?? {
+          id: termId,
+          name: grouped[termId][0].termName,
+          startDate: "",
+          endDate: "",
+        };
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {grouped[term].map((offering) => (
-              <Card
-                key={offering.id}
-                className="group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+        return (
+          <div key={termId} className="space-y-3">
+            <div className="flex items-center gap-3">
+              <CalendarCheck className="h-4 w-4 text-primary" />
+              <button
+                type="button"
+                onClick={() => openTermEdit(term)}
+                className="cursor-pointer text-base font-semibold hover:text-primary hover:underline underline-offset-4"
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono ${sectionColor(offering.section)}`}
-                    >
-                      Section {offering.section}
-                    </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            router.push(`/course-offerings/${offering.id}`)
-                          }
-                        >
-                          <ChevronRight className="mr-2 h-3.5 w-3.5" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEdit(offering)}>
-                          <Pencil className="mr-2 h-3.5 w-3.5" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => handleDelete(offering.id)}
-                        >
-                          <Trash2 className="mr-2 h-3.5 w-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                {term.name}
+              </button>
+              <Badge variant="secondary" className="text-xs">
+                {grouped[termId].length} offering
+                {grouped[termId].length !== 1 ? "s" : ""}
+              </Badge>
+              <div className="flex-1 h-px bg-border" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => openTermEdit(term)}
+                aria-label={`Edit ${term.name}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
 
-                  <p className="font-semibold text-sm leading-snug mb-3 line-clamp-2">
-                    {offering.courseName}
-                  </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {grouped[termId].map((offering) => (
+                <Card
+                  key={offering.id}
+                  className="group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono ${sectionColor(offering.section)}`}
+                      >
+                        Section {offering.section}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                          >
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              router.push(`/course-offerings/${offering.id}`)
+                            }
+                          >
+                            <ChevronRight className="mr-2 h-3.5 w-3.5" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEdit(offering)}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => requestOfferingDelete(offering.id)}
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
 
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {offering.students.length} students
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <UserCog className="h-3.5 w-3.5" />
-                      {offering.staff.length} staff
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <CalendarCheck className="h-3.5 w-3.5" />
-                      {offering.sessions.length} sessions
-                    </span>
-                  </div>
+                    <p className="font-semibold text-sm leading-snug mb-3 line-clamp-2">
+                      {offering.courseName}
+                    </p>
 
-                  <div className="flex gap-2 mt-3 pt-3 border-t opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1 h-7 text-xs gap-1.5"
-                      onClick={() =>
-                        router.push(`/course-offerings/${offering.id}`)
-                      }
-                    >
-                      <ChevronRight className="h-3 w-3" />
-                      Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs px-2"
-                      onClick={() => openEdit(offering)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs px-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
-                      onClick={() => handleDelete(offering.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {offering.students.length} students
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <UserCog className="h-3.5 w-3.5" />
+                        {offering.staff.length} staff
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <CalendarCheck className="h-3.5 w-3.5" />
+                        {offering.sessions.length} sessions
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2 mt-3 pt-3 border-t opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1 h-7 text-xs gap-1.5"
+                        onClick={() =>
+                          router.push(`/course-offerings/${offering.id}`)
+                        }
+                      >
+                        <ChevronRight className="h-3 w-3" />
+                        Details
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2"
+                        onClick={() => openEdit(offering)}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs px-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={() => requestOfferingDelete(offering.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <CreateOfferingDialog
         open={dialogOpen}
@@ -604,6 +825,20 @@ export default function CourseOfferingsPage() {
         onTermCreate={handleTermCreate}
         onSubmit={handleSubmit}
         editing={editing}
+      />
+      <TermEditDialog
+        open={termDialogOpen}
+        onOpenChange={setTermDialogOpen}
+        term={editingTerm}
+        onSave={handleTermUpdate}
+        onDelete={requestTermDelete}
+      />
+      <DeleteConfirmationDialog
+        request={deleteRequest}
+        onOpenChange={(open) => {
+          if (!open) setDeleteRequest(null);
+        }}
+        onConfirm={confirmDeleteRequest}
       />
     </div>
   );

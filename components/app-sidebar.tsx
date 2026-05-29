@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  CalendarDays,
   ChevronUp,
   ClipboardCheck,
   GraduationCap,
@@ -62,7 +61,6 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     label: "Administration",
     items: [
       { title: "Courses", href: "/courses", icon: BookOpen },
-      { title: "Terms", href: "/terms", icon: CalendarDays },
       { title: "Course Offerings", href: "/course-offerings", icon: Layers },
       { title: "Attendance", href: "/attendance", icon: QrCode },
     ],
