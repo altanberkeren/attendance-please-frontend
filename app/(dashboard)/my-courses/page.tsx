@@ -13,9 +13,8 @@ import {
 import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
 import { getApiAttendancesOverview } from "@/lib/api/attendances/attendances"
-import { useGetApiCourseOfferings } from "@/lib/api/course-offerings/course-offerings"
-import { useGetApiEnrollments } from "@/lib/api/enrollments/enrollments"
-import type { CourseOfferingDto, StudentAttendanceOverview } from "@/lib/api/model"
+import { useGetApiEnrollmentsMe } from "@/lib/api/enrollments/enrollments"
+import type { MyEnrollmentDto, StudentAttendanceOverview } from "@/lib/api/model"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -67,18 +66,13 @@ function asAttendanceStatus(value: string | null): AttendanceStatus {
   return null
 }
 
-function toClassData(
-  offering: CourseOfferingDto | undefined,
-  overview: StudentAttendanceOverview,
-  fallbackOfferingId: number | string,
-  sectionName: string | null,
-): ClassData {
+function toClassData(enrollment: MyEnrollmentDto, overview: StudentAttendanceOverview): ClassData {
   return {
-    id: String(offering?.id ?? fallbackOfferingId),
-    courseCode: offering?.courseCode ?? `#${fallbackOfferingId}`,
-    courseName: offering?.courseTitle ?? "Course offering",
-    termCode: offering?.termCode ?? "Current term",
-    sectionName,
+    id: String(enrollment.courseOfferingId),
+    courseCode: enrollment.courseCode,
+    courseName: enrollment.courseTitle,
+    termCode: enrollment.termCode,
+    sectionName: enrollment.sectionName,
     presentCount: toNumber(overview.presentCount),
     lateCount: toNumber(overview.lateCount),
     absentCount: toNumber(overview.absentCount),
@@ -403,19 +397,7 @@ export default function MyCoursesPage() {
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null)
   const queryClient = useQueryClient()
 
-  const enrollmentsQuery = useGetApiEnrollments(
-    user?.id ? { userId: user.id } : undefined,
-    { query: { enabled: !!user?.id } },
-  )
-  const offeringsQuery = useGetApiCourseOfferings()
-
-  const offeringById = useMemo(() => {
-    const map = new Map<string, CourseOfferingDto>()
-    for (const offering of offeringsQuery.data ?? []) {
-      map.set(String(offering.id), offering)
-    }
-    return map
-  }, [offeringsQuery.data])
+  const enrollmentsQuery = useGetApiEnrollmentsMe({ query: { enabled: !!user?.id } })
 
   const overviewQueries = useQueries({
     queries: (enrollmentsQuery.data ?? []).map((enrollment) => ({
@@ -431,17 +413,12 @@ export default function MyCoursesPage() {
       .map((enrollment, index) => {
         const overview = overviewQueries[index]?.data
         if (!overview) return null
-        return toClassData(
-          offeringById.get(String(enrollment.courseOfferingId)),
-          overview,
-          enrollment.courseOfferingId,
-          enrollment.sectionName,
-        )
+        return toClassData(enrollment, overview)
       })
       .filter((course): course is ClassData => course !== null)
-  }, [enrollmentsQuery.data, offeringById, overviewQueries])
+  }, [enrollmentsQuery.data, overviewQueries])
 
-  const isLoading = enrollmentsQuery.isPending || offeringsQuery.isPending || overviewQueries.some((query) => query.isLoading)
+  const isLoading = enrollmentsQuery.isPending || overviewQueries.some((query) => query.isLoading)
   const failing = classes.filter((course) => calcRate(course) < FAIL_THRESHOLD && course.totalModules > 0)
 
   if (selectedClass) {
@@ -452,7 +429,7 @@ export default function MyCoursesPage() {
     )
   }
 
-  if (enrollmentsQuery.isError || offeringsQuery.isError) {
+  if (enrollmentsQuery.isError) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
@@ -465,8 +442,7 @@ export default function MyCoursesPage() {
           size="sm"
           className="mt-4"
           onClick={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/Enrollments"] })
-            queryClient.invalidateQueries({ queryKey: ["/api/CourseOfferings"] })
+            queryClient.invalidateQueries({ queryKey: ["/api/Enrollments/me"] })
           }}
         >
           Retry

@@ -27,6 +27,7 @@ import type {
   EnrollStudentCommand,
   EnrollmentDto,
   GetApiEnrollmentsParams,
+  MyEnrollmentDto,
   UpdateEnrollmentSectionCommand
 } from '../model';
 
@@ -367,6 +368,92 @@ export function useGetApiEnrollmentsId<TData = Awaited<ReturnType<typeof getApiE
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiEnrollmentsIdQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+export const getApiEnrollmentsMe = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<MyEnrollmentDto[]>(
+      {url: `/api/Enrollments/me`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetApiEnrollmentsMeQueryKey = () => {
+    return [
+    `/api/Enrollments/me`
+    ] as const;
+    }
+
+
+export const getGetApiEnrollmentsMeQueryOptions = <TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiEnrollmentsMeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiEnrollmentsMe>>> = ({ signal }) => getApiEnrollmentsMe(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiEnrollmentsMeQueryResult = NonNullable<Awaited<ReturnType<typeof getApiEnrollmentsMe>>>
+export type GetApiEnrollmentsMeQueryError = unknown
+
+
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>,
+          TError,
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>,
+          TError,
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiEnrollmentsMeQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

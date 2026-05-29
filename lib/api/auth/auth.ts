@@ -16,6 +16,7 @@ import type {
 
 import type {
   AuthTokenResponse,
+  DevRoleRequest,
   RefreshTokenRequest,
   RegisterCommand
 } from '../model';
@@ -136,6 +137,63 @@ const {mutation: mutationOptions} = options ?
         TContext
       > => {
       return useMutation(getPostApiAuthRefreshMutationOptions(options), queryClient);
+    }
+    export const postApiAuthDevRole = (
+    devRoleRequest: DevRoleRequest,
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<AuthTokenResponse>(
+      {url: `/api/Auth/dev-role`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: devRoleRequest, signal
+    },
+      );
+    }
+
+
+
+export const getPostApiAuthDevRoleMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthDevRole>>, TError,{data: DevRoleRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiAuthDevRole>>, TError,{data: DevRoleRequest}, TContext> => {
+
+const mutationKey = ['postApiAuthDevRole'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiAuthDevRole>>, {data: DevRoleRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postApiAuthDevRole(data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiAuthDevRoleMutationResult = NonNullable<Awaited<ReturnType<typeof postApiAuthDevRole>>>
+    export type PostApiAuthDevRoleMutationBody = DevRoleRequest
+    export type PostApiAuthDevRoleMutationError = unknown
+
+    export const usePostApiAuthDevRole = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthDevRole>>, TError,{data: DevRoleRequest}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiAuthDevRole>>,
+        TError,
+        {data: DevRoleRequest},
+        TContext
+      > => {
+      return useMutation(getPostApiAuthDevRoleMutationOptions(options), queryClient);
     }
     export const postApiAuthRegister = (
     registerCommand: RegisterCommand,

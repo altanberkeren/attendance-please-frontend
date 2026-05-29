@@ -11,5 +11,6 @@ export interface UserDto {
   name: string;
   email: string;
   role: string;
+  roles: string[];
   createdAt: string;
 }

@@ -3,17 +3,14 @@
 import Link from "next/link"
 import { AlertTriangle, ClipboardCheck, GraduationCap, TrendingUp } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
-import { useGetApiEnrollments } from "@/lib/api/enrollments/enrollments"
+import { useGetApiEnrollmentsMe } from "@/lib/api/enrollments/enrollments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 export function StudentDashboard() {
   const { user } = useAuth()
-  const enrollmentsQuery = useGetApiEnrollments(
-    user?.id ? { userId: user.id } : undefined,
-    { query: { enabled: !!user?.id } },
-  )
+  const enrollmentsQuery = useGetApiEnrollmentsMe({ query: { enabled: !!user?.id } })
 
   const courseCount = enrollmentsQuery.data?.length ?? 0
   const studentStats = [
