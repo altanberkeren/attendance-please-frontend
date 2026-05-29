@@ -1,22 +1,32 @@
-"use client"
+"use client";
 
-import type { ComponentType } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
 import {
-  LayoutDashboard,
   BookOpen,
   CalendarDays,
+  ChevronUp,
+  ClipboardCheck,
+  GraduationCap,
   Layers,
+  LayoutDashboard,
+  LogOut,
   QrCode,
   Settings,
-  LogOut,
   User,
-  ChevronUp,
-  GraduationCap,
-  ClipboardCheck,
-} from "lucide-react"
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import type { ComponentType } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -27,31 +37,21 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/hooks/use-auth"
-import { useProfilePhoto } from "@/hooks/use-profile-photo"
-import { getPrimaryRole } from "@/lib/auth/roles"
+} from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { useProfilePhoto } from "@/hooks/use-profile-photo";
+import { getPrimaryRole } from "@/lib/auth/roles";
 
 type NavItem = {
-  title: string
-  href: string
-  icon: ComponentType<{ className?: string }>
-}
+  title: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+};
 
 type NavGroup = {
-  label: string
-  items: NavItem[]
-}
+  label: string;
+  items: NavItem[];
+};
 
 const ADMIN_NAV_GROUPS: NavGroup[] = [
   {
@@ -71,7 +71,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     label: "Account",
     items: [{ title: "Settings", href: "/settings", icon: Settings }],
   },
-]
+];
 
 const STAFF_NAV_GROUPS: NavGroup[] = [
   {
@@ -81,7 +81,7 @@ const STAFF_NAV_GROUPS: NavGroup[] = [
   {
     label: "Teaching",
     items: [
-      { title: "My Courses", href: "/course-offerings", icon: GraduationCap },
+      { title: "My Courses", href: "/staff-courses", icon: GraduationCap },
       { title: "Attendance", href: "/attendance", icon: QrCode },
     ],
   },
@@ -89,7 +89,7 @@ const STAFF_NAV_GROUPS: NavGroup[] = [
     label: "Account",
     items: [{ title: "Settings", href: "/settings", icon: Settings }],
   },
-]
+];
 
 const STUDENT_NAV_GROUPS: NavGroup[] = [
   {
@@ -107,7 +107,7 @@ const STUDENT_NAV_GROUPS: NavGroup[] = [
     label: "Account",
     items: [{ title: "Settings", href: "/settings", icon: Settings }],
   },
-]
+];
 
 const FALLBACK_NAV_GROUPS: NavGroup[] = [
   {
@@ -118,27 +118,27 @@ const FALLBACK_NAV_GROUPS: NavGroup[] = [
     label: "Account",
     items: [{ title: "Settings", href: "/settings", icon: Settings }],
   },
-]
+];
 
 function getNavGroups(user: Parameters<typeof getPrimaryRole>[0]): NavGroup[] {
-  const role = getPrimaryRole(user)
-  if (role === "Admin") return ADMIN_NAV_GROUPS
-  if (role === "Staff") return STAFF_NAV_GROUPS
-  if (role === "Student") return STUDENT_NAV_GROUPS
-  return FALLBACK_NAV_GROUPS
+  const role = getPrimaryRole(user);
+  if (role === "Admin") return ADMIN_NAV_GROUPS;
+  if (role === "Staff") return STAFF_NAV_GROUPS;
+  if (role === "Student") return STUDENT_NAV_GROUPS;
+  return FALLBACK_NAV_GROUPS;
 }
 
 export function AppSidebar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { user, signOut } = useAuth()
-  const { photoUrl } = useProfilePhoto()
-  const navGroups = getNavGroups(user)
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
+  const { photoUrl } = useProfilePhoto();
+  const navGroups = getNavGroups(user);
 
   async function handleSignOut() {
-    await signOut()
-    router.replace("/login")
-    router.refresh()
+    await signOut();
+    router.replace("/login");
+    router.refresh();
   }
 
   return (
@@ -154,7 +154,9 @@ export function AppSidebar() {
             className="shrink-0 rounded"
           />
           <div className="flex flex-col leading-tight">
-            <span className="font-bold text-sm text-sidebar-foreground">AttendanceApp</span>
+            <span className="font-bold text-sm text-sidebar-foreground">
+              AttendanceApp
+            </span>
             <span className="text-[10px] text-sidebar-foreground/50 font-medium tracking-wide uppercase">
               Spring 2025
             </span>
@@ -173,17 +175,22 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarMenu>
               {group.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={item.href} className="flex items-center gap-2.5">
+                      <Link
+                        href={item.href}
+                        className="flex items-center gap-2.5"
+                      >
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                )
+                );
               })}
             </SidebarMenu>
           </SidebarGroup>
@@ -202,14 +209,23 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8">
-                    {photoUrl && <AvatarImage src={photoUrl} alt={user?.displayName ?? "User"} />}
+                    {photoUrl && (
+                      <AvatarImage
+                        src={photoUrl}
+                        alt={user?.displayName ?? "User"}
+                      />
+                    )}
                     <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-xs font-bold">
                       {user?.initials ?? "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user?.displayName ?? "User"}</span>
-                    <span className="truncate text-xs text-muted-foreground">{user?.email ?? ""}</span>
+                    <span className="truncate font-semibold">
+                      {user?.displayName ?? "User"}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {user?.email ?? ""}
+                    </span>
                   </div>
                   <ChevronUp className="ml-auto h-4 w-4" />
                 </SidebarMenuButton>
@@ -220,8 +236,12 @@ export function AppSidebar() {
               >
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold">{user?.displayName ?? "User"}</span>
-                    <span className="text-xs text-muted-foreground break-all">{user?.email ?? ""}</span>
+                    <span className="text-sm font-semibold">
+                      {user?.displayName ?? "User"}
+                    </span>
+                    <span className="text-xs text-muted-foreground break-all">
+                      {user?.email ?? ""}
+                    </span>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -234,7 +254,10 @@ export function AppSidebar() {
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="text-destructive focus:text-destructive"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>
@@ -244,5 +267,5 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

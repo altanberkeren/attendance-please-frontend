@@ -1,33 +1,50 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { BookOpen, Plus, Search, Pencil, Trash2, MoreHorizontal } from "lucide-react"
-import { z } from "zod"
-import { type Course, MOCK_COURSES } from "@/lib/mock/courses"
-import { CrudDialog, type FieldDef } from "@/components/crud-dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  BookOpen,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { useState } from "react";
+import { z } from "zod";
+import { CrudDialog, type FieldDef } from "@/components/crud-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { type Course, MOCK_COURSES } from "@/lib/mock/courses";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const courseSchema = z.object({
-  name:        z.string().min(1, "Name is required"),
-  code:        z.string().min(1, "Code is required"),
+  name: z.string().min(1, "Name is required"),
+  code: z.string().min(1, "Code is required"),
   description: z.string().min(1, "Description is required"),
-})
-type CourseFormValues = z.infer<typeof courseSchema>
+});
+type CourseFormValues = z.infer<typeof courseSchema>;
 
 const FIELDS: FieldDef[] = [
-  { name: "name",        label: "Course name",  placeholder: "Introduction to Computer Science" },
-  { name: "code",        label: "Course code",  placeholder: "CS101" },
-  { name: "description", label: "Description",  placeholder: "What this course covers…" },
-]
-const EMPTY: CourseFormValues = { name: "", code: "", description: "" }
+  {
+    name: "name",
+    label: "Course name",
+    placeholder: "Introduction to Computer Science",
+  },
+  { name: "code", label: "Course code", placeholder: "CS101" },
+  {
+    name: "description",
+    label: "Description",
+    placeholder: "What this course covers…",
+  },
+];
+const EMPTY: CourseFormValues = { name: "", code: "", description: "" };
 
 // Code → accent color for visual variety
 const CODE_COLORS: Record<string, string> = {
@@ -36,35 +53,45 @@ const CODE_COLORS: Record<string, string> = {
   CS301: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   CS401: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   CS402: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-}
+};
 function codeColor(code: string) {
-  return CODE_COLORS[code] ?? "bg-primary/10 text-primary"
+  return CODE_COLORS[code] ?? "bg-primary/10 text-primary";
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CoursesPage() {
-  const [courses, setCourses]     = useState<Course[]>(MOCK_COURSES)
-  const [dialogOpen, setDialog]   = useState(false)
-  const [editing, setEditing]     = useState<Course | null>(null)
-  const [search, setSearch]       = useState("")
+  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [dialogOpen, setDialog] = useState(false);
+  const [editing, setEditing] = useState<Course | null>(null);
+  const [search, setSearch] = useState("");
 
   const filtered = courses.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase())
-  )
+      c.code.toLowerCase().includes(search.toLowerCase()),
+  );
 
-  function openCreate() { setEditing(null); setDialog(true) }
-  function openEdit(c: Course) { setEditing(c); setDialog(true) }
-  function handleDelete(id: string) { setCourses((p) => p.filter((c) => c.id !== id)) }
+  function openCreate() {
+    setEditing(null);
+    setDialog(true);
+  }
+  function openEdit(c: Course) {
+    setEditing(c);
+    setDialog(true);
+  }
+  function handleDelete(id: string) {
+    setCourses((p) => p.filter((c) => c.id !== id));
+  }
 
   function handleSubmit(raw: unknown) {
-    const v = raw as CourseFormValues
+    const v = raw as CourseFormValues;
     if (editing) {
-      setCourses((p) => p.map((c) => c.id === editing.id ? { ...c, ...v } : c))
+      setCourses((p) =>
+        p.map((c) => (c.id === editing.id ? { ...c, ...v } : c)),
+      );
     } else {
-      setCourses((p) => [...p, { id: Date.now().toString(), ...v }])
+      setCourses((p) => [...p, { id: Date.now().toString(), ...v }]);
     }
   }
 
@@ -103,7 +130,9 @@ export default function CoursesPage() {
           </div>
           <p className="text-sm font-medium">No courses found</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {search ? "Try a different search term." : 'Click "Add Course" to create your first one.'}
+            {search
+              ? "Try a different search term."
+              : 'Click "Add Course" to create your first one.'}
           </p>
         </div>
       ) : (
@@ -148,7 +177,9 @@ export default function CoursesPage() {
                   </DropdownMenu>
                 </div>
 
-                <CardTitle className="text-base leading-snug mt-2">{course.name}</CardTitle>
+                <CardTitle className="text-base leading-snug mt-2">
+                  {course.name}
+                </CardTitle>
               </CardHeader>
 
               <CardContent className="pt-0">
@@ -205,12 +236,16 @@ export default function CoursesPage() {
         schema={courseSchema}
         defaultValues={
           editing
-            ? { name: editing.name, code: editing.code, description: editing.description }
+            ? {
+                name: editing.name,
+                code: editing.code,
+                description: editing.description,
+              }
             : EMPTY
         }
         fields={FIELDS}
         onSubmit={handleSubmit}
       />
     </div>
-  )
+  );
 }

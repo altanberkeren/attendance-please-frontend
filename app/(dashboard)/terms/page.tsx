@@ -1,88 +1,124 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { CalendarDays, Plus, Pencil, Trash2, Clock, MoreHorizontal } from "lucide-react"
-import { z } from "zod"
-import { type Term, MOCK_TERMS } from "@/lib/mock/terms"
-import { CrudDialog, type FieldDef } from "@/components/crud-dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  CalendarDays,
+  Clock,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { useState } from "react";
+import { z } from "zod";
+import { CrudDialog, type FieldDef } from "@/components/crud-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MOCK_TERMS, type Term } from "@/lib/mock/terms";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const termSchema = z.object({
-  name:      z.string().min(1, "Name is required"),
+  name: z.string().min(1, "Name is required"),
   startDate: z.string().min(1, "Start date is required"),
-  endDate:   z.string().min(1, "End date is required"),
-})
-type TermFormValues = z.infer<typeof termSchema>
+  endDate: z.string().min(1, "End date is required"),
+});
+type TermFormValues = z.infer<typeof termSchema>;
 
 const FIELDS: FieldDef[] = [
-  { name: "name",      label: "Term name",   placeholder: "Fall 2025" },
-  { name: "startDate", label: "Start date",  type: "date" },
-  { name: "endDate",   label: "End date",    type: "date" },
-]
-const EMPTY: TermFormValues = { name: "", startDate: "", endDate: "" }
+  { name: "name", label: "Term name", placeholder: "Fall 2025" },
+  { name: "startDate", label: "Start date", type: "date" },
+  { name: "endDate", label: "End date", type: "date" },
+];
+const EMPTY: TermFormValues = { name: "", startDate: "", endDate: "" };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function termStatus(start: string, end: string): "active" | "upcoming" | "past" {
-  const now   = new Date()
-  const s     = new Date(start)
-  const e     = new Date(end)
-  if (now >= s && now <= e) return "active"
-  if (now < s)              return "upcoming"
-  return "past"
+function termStatus(
+  start: string,
+  end: string,
+): "active" | "upcoming" | "past" {
+  const now = new Date();
+  const s = new Date(start);
+  const e = new Date(end);
+  if (now >= s && now <= e) return "active";
+  if (now < s) return "upcoming";
+  return "past";
 }
 
 function durationDays(start: string, end: string) {
-  const ms = new Date(end).getTime() - new Date(start).getTime()
-  return Math.round(ms / 86_400_000)
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return Math.round(ms / 86_400_000);
 }
 
 function fmt(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  })
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function StatusBadge({ status }: { status: "active" | "upcoming" | "past" }) {
   if (status === "active")
-    return <Badge className="text-xs animate-pulse">Active</Badge>
+    return <Badge className="text-xs animate-pulse">Active</Badge>;
   if (status === "upcoming")
-    return <Badge variant="secondary" className="text-xs">Upcoming</Badge>
-  return <Badge variant="outline" className="text-xs text-muted-foreground">Past</Badge>
+    return (
+      <Badge variant="secondary" className="text-xs">
+        Upcoming
+      </Badge>
+    );
+  return (
+    <Badge variant="outline" className="text-xs text-muted-foreground">
+      Past
+    </Badge>
+  );
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TermsPage() {
-  const [terms, setTerms]       = useState<Term[]>(MOCK_TERMS)
-  const [dialogOpen, setDialog] = useState(false)
-  const [editing, setEditing]   = useState<Term | null>(null)
+  const [terms, setTerms] = useState<Term[]>(MOCK_TERMS);
+  const [dialogOpen, setDialog] = useState(false);
+  const [editing, setEditing] = useState<Term | null>(null);
 
-  function openCreate() { setEditing(null); setDialog(true) }
-  function openEdit(t: Term) { setEditing(t); setDialog(true) }
-  function handleDelete(id: string) { setTerms((p) => p.filter((t) => t.id !== id)) }
+  function openCreate() {
+    setEditing(null);
+    setDialog(true);
+  }
+  function openEdit(t: Term) {
+    setEditing(t);
+    setDialog(true);
+  }
+  function handleDelete(id: string) {
+    setTerms((p) => p.filter((t) => t.id !== id));
+  }
 
   function handleSubmit(raw: unknown) {
-    const v = raw as TermFormValues
+    const v = raw as TermFormValues;
     if (editing) {
-      setTerms((p) => p.map((t) => t.id === editing.id ? { ...t, ...v } : t))
+      setTerms((p) => p.map((t) => (t.id === editing.id ? { ...t, ...v } : t)));
     } else {
-      setTerms((p) => [...p, { id: Date.now().toString(), ...v }])
+      setTerms((p) => [...p, { id: Date.now().toString(), ...v }]);
     }
   }
 
-  const active   = terms.filter((t) => termStatus(t.startDate, t.endDate) === "active")
-  const upcoming = terms.filter((t) => termStatus(t.startDate, t.endDate) === "upcoming")
-  const past     = terms.filter((t) => termStatus(t.startDate, t.endDate) === "past")
-  const sorted   = [...active, ...upcoming, ...past]
+  const active = terms.filter(
+    (t) => termStatus(t.startDate, t.endDate) === "active",
+  );
+  const upcoming = terms.filter(
+    (t) => termStatus(t.startDate, t.endDate) === "upcoming",
+  );
+  const past = terms.filter(
+    (t) => termStatus(t.startDate, t.endDate) === "past",
+  );
+  const sorted = [...active, ...upcoming, ...past];
 
   return (
     <div className="space-y-6 max-w-screen-xl">
@@ -91,7 +127,8 @@ export default function TermsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Terms</h1>
           <p className="text-sm text-muted-foreground">
-            {terms.length} academic term{terms.length !== 1 ? "s" : ""} configured
+            {terms.length} academic term{terms.length !== 1 ? "s" : ""}{" "}
+            configured
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2 self-start sm:self-auto">
@@ -107,14 +144,16 @@ export default function TermsPage() {
             <CalendarDays className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm font-medium">No terms yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Click "Add Term" to create your first academic term.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Click "Add Term" to create your first academic term.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sorted.map((term) => {
-            const status   = termStatus(term.startDate, term.endDate)
-            const days     = durationDays(term.startDate, term.endDate)
-            const isActive = status === "active"
+            const status = termStatus(term.startDate, term.endDate);
+            const days = durationDays(term.startDate, term.endDate);
+            const isActive = status === "active";
 
             return (
               <Card
@@ -160,13 +199,19 @@ export default function TermsPage() {
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 text-sm">
                       <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-muted-foreground text-xs">Start</span>
-                      <span className="font-medium text-xs ml-auto">{fmt(term.startDate)}</span>
+                      <span className="text-muted-foreground text-xs">
+                        Start
+                      </span>
+                      <span className="font-medium text-xs ml-auto">
+                        {fmt(term.startDate)}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <CalendarDays className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="text-muted-foreground text-xs">End</span>
-                      <span className="font-medium text-xs ml-auto">{fmt(term.endDate)}</span>
+                      <span className="font-medium text-xs ml-auto">
+                        {fmt(term.endDate)}
+                      </span>
                     </div>
                   </div>
 
@@ -178,18 +223,26 @@ export default function TermsPage() {
                         {days} days
                       </span>
                       {isActive && (
-                        <span className="text-primary font-medium">In progress</span>
+                        <span className="text-primary font-medium">
+                          In progress
+                        </span>
                       )}
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className={`h-full rounded-full ${
-                          isActive ? "bg-primary" : status === "upcoming" ? "bg-secondary" : "bg-muted-foreground/30"
+                          isActive
+                            ? "bg-primary"
+                            : status === "upcoming"
+                              ? "bg-secondary"
+                              : "bg-muted-foreground/30"
                         }`}
                         style={{
                           width: isActive
                             ? `${Math.min(100, ((Date.now() - new Date(term.startDate).getTime()) / (new Date(term.endDate).getTime() - new Date(term.startDate).getTime())) * 100)}%`
-                            : status === "past" ? "100%" : "0%",
+                            : status === "past"
+                              ? "100%"
+                              : "0%",
                         }}
                       />
                     </div>
@@ -218,7 +271,7 @@ export default function TermsPage() {
                   </div>
                 </CardContent>
               </Card>
-            )
+            );
           })}
 
           {/* Add placeholder */}
@@ -245,12 +298,16 @@ export default function TermsPage() {
         schema={termSchema}
         defaultValues={
           editing
-            ? { name: editing.name, startDate: editing.startDate, endDate: editing.endDate }
+            ? {
+                name: editing.name,
+                startDate: editing.startDate,
+                endDate: editing.endDate,
+              }
             : EMPTY
         }
         fields={FIELDS}
         onSubmit={handleSubmit}
       />
     </div>
-  )
+  );
 }

@@ -25,6 +25,7 @@ export * from './enrollmentDto';
 export * from './enrollStudentCommand';
 export * from './getApiAttendancesMatrixParams';
 export * from './getApiAttendancesOverviewParams';
+export * from './getApiCourseOfferingsParams';
 export * from './getApiCourseOfferingStaffsParams';
 export * from './getApiEnrollmentsParams';
 export * from './getApiModulesParams';

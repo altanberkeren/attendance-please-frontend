@@ -1,48 +1,64 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 import {
-  Layers, Plus, Pencil, Trash2, Users, UserCog,
-  CalendarCheck, ChevronRight, MoreHorizontal,
-} from "lucide-react"
-import { z } from "zod"
-import { type CourseOffering, MOCK_COURSE_OFFERINGS } from "@/lib/mock/course-offerings"
-import { CrudDialog, type FieldDef } from "@/components/crud-dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+  CalendarCheck,
+  ChevronRight,
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  UserCog,
+  Users,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { z } from "zod";
+import { CrudDialog, type FieldDef } from "@/components/crud-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  type CourseOffering,
+  MOCK_COURSE_OFFERINGS,
+} from "@/lib/mock/course-offerings";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const offeringSchema = z.object({
   courseName: z.string().min(1, "Course name is required"),
-  termName:   z.string().min(1, "Term is required"),
-  section:    z.string().min(1, "Section is required"),
-})
-type OfferingFormValues = z.infer<typeof offeringSchema>
+  termName: z.string().min(1, "Term is required"),
+  section: z.string().min(1, "Section is required"),
+});
+type OfferingFormValues = z.infer<typeof offeringSchema>;
 
 const FIELDS: FieldDef[] = [
-  { name: "courseName", label: "Course name", placeholder: "Introduction to Computer Science" },
-  { name: "termName",   label: "Term",        placeholder: "Fall 2025" },
-  { name: "section",    label: "Section",     placeholder: "A" },
-]
-const EMPTY: OfferingFormValues = { courseName: "", termName: "", section: "" }
+  {
+    name: "courseName",
+    label: "Course name",
+    placeholder: "Introduction to Computer Science",
+  },
+  { name: "termName", label: "Term", placeholder: "Fall 2025" },
+  { name: "section", label: "Section", placeholder: "A" },
+];
+const EMPTY: OfferingFormValues = { courseName: "", termName: "", section: "" };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Group an array by a key */
 function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
   return arr.reduce<Record<string, T[]>>((acc, item) => {
-    const k = key(item)
-    acc[k] ??= []
-    acc[k].push(item)
-    return acc
-  }, {})
+    const k = key(item);
+    acc[k] ??= [];
+    acc[k].push(item);
+    return acc;
+  }, {});
 }
 
 const SECTION_COLORS: Record<string, string> = {
@@ -50,47 +66,70 @@ const SECTION_COLORS: Record<string, string> = {
   B: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
   C: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   D: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-}
+};
 function sectionColor(sec: string) {
-  return SECTION_COLORS[sec.toUpperCase()] ?? "bg-primary/10 text-primary"
+  return SECTION_COLORS[sec.toUpperCase()] ?? "bg-primary/10 text-primary";
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CourseOfferingsPage() {
-  const router = useRouter()
-  const [offerings, setOfferings] = useState<CourseOffering[]>(MOCK_COURSE_OFFERINGS)
-  const [dialogOpen, setDialog]   = useState(false)
-  const [editing, setEditing]     = useState<CourseOffering | null>(null)
+  const router = useRouter();
+  const [offerings, setOfferings] = useState<CourseOffering[]>(
+    MOCK_COURSE_OFFERINGS,
+  );
+  const [dialogOpen, setDialog] = useState(false);
+  const [editing, setEditing] = useState<CourseOffering | null>(null);
 
-  function openCreate() { setEditing(null); setDialog(true) }
-  function openEdit(o: CourseOffering) { setEditing(o); setDialog(true) }
-  function handleDelete(id: string) { setOfferings((p) => p.filter((o) => o.id !== id)) }
+  function openCreate() {
+    setEditing(null);
+    setDialog(true);
+  }
+  function openEdit(o: CourseOffering) {
+    setEditing(o);
+    setDialog(true);
+  }
+  function handleDelete(id: string) {
+    setOfferings((p) => p.filter((o) => o.id !== id));
+  }
 
   function handleSubmit(raw: unknown) {
-    const v = raw as OfferingFormValues
+    const v = raw as OfferingFormValues;
     if (editing) {
-      setOfferings((p) => p.map((o) => o.id === editing.id ? { ...o, ...v } : o))
+      setOfferings((p) =>
+        p.map((o) => (o.id === editing.id ? { ...o, ...v } : o)),
+      );
     } else {
       setOfferings((p) => [
         ...p,
-        { id: Date.now().toString(), courseId: "", termId: "", students: [], staff: [], sessions: [], ...v },
-      ])
+        {
+          id: Date.now().toString(),
+          courseId: "",
+          termId: "",
+          students: [],
+          staff: [],
+          sessions: [],
+          ...v,
+        },
+      ]);
     }
   }
 
   // Group offerings by term, most recent first
-  const grouped = groupBy(offerings, (o) => o.termName)
-  const termOrder = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
+  const grouped = groupBy(offerings, (o) => o.termName);
+  const termOrder = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
   return (
     <div className="space-y-8 max-w-screen-xl">
       {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Course Offerings</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Course Offerings
+          </h1>
           <p className="text-sm text-muted-foreground">
-            {offerings.length} offering{offerings.length !== 1 ? "s" : ""} across {termOrder.length} term{termOrder.length !== 1 ? "s" : ""}
+            {offerings.length} offering{offerings.length !== 1 ? "s" : ""}{" "}
+            across {termOrder.length} term{termOrder.length !== 1 ? "s" : ""}
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2 self-start sm:self-auto">
@@ -106,7 +145,9 @@ export default function CourseOfferingsPage() {
             <Layers className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-sm font-medium">No offerings yet</p>
-          <p className="text-xs text-muted-foreground mt-1">Click "Add Offering" to create your first one.</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Click "Add Offering" to create your first one.
+          </p>
         </div>
       )}
 
@@ -120,7 +161,8 @@ export default function CourseOfferingsPage() {
               <h2 className="text-base font-semibold">{term}</h2>
             </div>
             <Badge variant="secondary" className="text-xs">
-              {grouped[term].length} offering{grouped[term].length !== 1 ? "s" : ""}
+              {grouped[term].length} offering
+              {grouped[term].length !== 1 ? "s" : ""}
             </Badge>
             <div className="flex-1 h-px bg-border" />
           </div>
@@ -151,7 +193,11 @@ export default function CourseOfferingsPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/course-offerings/${offering.id}`)}>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            router.push(`/course-offerings/${offering.id}`)
+                          }
+                        >
                           <ChevronRight className="mr-2 h-3.5 w-3.5" />
                           View Details
                         </DropdownMenuItem>
@@ -197,7 +243,9 @@ export default function CourseOfferingsPage() {
                       variant="default"
                       size="sm"
                       className="flex-1 h-7 text-xs gap-1.5"
-                      onClick={() => router.push(`/course-offerings/${offering.id}`)}
+                      onClick={() =>
+                        router.push(`/course-offerings/${offering.id}`)
+                      }
                     >
                       <ChevronRight className="h-3 w-3" />
                       Details
@@ -234,12 +282,16 @@ export default function CourseOfferingsPage() {
         schema={offeringSchema}
         defaultValues={
           editing
-            ? { courseName: editing.courseName, termName: editing.termName, section: editing.section }
+            ? {
+                courseName: editing.courseName,
+                termName: editing.termName,
+                section: editing.section,
+              }
             : EMPTY
         }
         fields={FIELDS}
         onSubmit={handleSubmit}
       />
     </div>
-  )
+  );
 }

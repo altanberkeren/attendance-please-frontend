@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5176/"
+      "url": "http://localhost:5188/"
     }
   ],
   "paths": {
@@ -501,6 +501,20 @@
       "get": {
         "tags": [
           "CourseOfferings"
+        ],
+        "parameters": [
+          {
+            "name": "staffUserId",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
         ],
         "responses": {
           "200": {

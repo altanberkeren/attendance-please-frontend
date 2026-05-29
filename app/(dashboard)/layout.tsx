@@ -1,13 +1,10 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { Loader2, Moon, Sun } from "lucide-react"
-import Image from "next/image"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { Button } from "@/components/ui/button"
+import { Loader2, Moon, Sun } from "lucide-react";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,10 +12,20 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { useAuth } from "@/hooks/use-auth"
-import { useTheme } from "@/hooks/use-theme"
-import { canAccessDashboardRoute, getDefaultDashboardPath } from "@/lib/auth/routes"
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
+import {
+  canAccessDashboardRoute,
+  getDefaultDashboardPath,
+} from "@/lib/auth/routes";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/overview": "Overview",
@@ -27,31 +34,35 @@ const ROUTE_LABELS: Record<string, string> = {
   "/course-offerings": "Course Offerings",
   "/attendance": "Attendance",
   "/my-courses": "My Courses",
+  "/staff-courses": "My Courses",
   "/my-attendance": "My Attendance",
+  "/sessions": "Session Details",
   "/settings": "Settings",
-}
+};
 
 function useBreadcrumbs() {
-  const pathname = usePathname()
-  const segments = pathname.split("/").filter(Boolean)
+  const pathname = usePathname();
+  const segments = pathname.split("/").filter(Boolean);
 
-  if (segments.length === 0) return []
+  if (segments.length === 0) return [];
 
-  const crumbs: { label: string; href: string; isLast: boolean }[] = []
-  let running = ""
+  const crumbs: { label: string; href: string; isLast: boolean }[] = [];
+  let running = "";
 
   segments.forEach((seg, index) => {
-    running += `/${seg}`
-    const isLast = index === segments.length - 1
-    const label = ROUTE_LABELS[running] ?? seg.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
-    crumbs.push({ label, href: running, isLast })
-  })
+    running += `/${seg}`;
+    const isLast = index === segments.length - 1;
+    const label =
+      ROUTE_LABELS[running] ??
+      seg.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+    crumbs.push({ label, href: running, isLast });
+  });
 
-  return crumbs
+  return crumbs;
 }
 
 function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme();
   return (
     <Button
       variant="ghost"
@@ -63,12 +74,12 @@ function ThemeToggle() {
       <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
       <span className="sr-only">Toggle theme</span>
     </Button>
-  )
+  );
 }
 
 function DashboardBreadcrumb() {
-  const crumbs = useBreadcrumbs()
-  if (crumbs.length === 0) return null
+  const crumbs = useBreadcrumbs();
+  if (crumbs.length === 0) return null;
 
   return (
     <Breadcrumb>
@@ -87,26 +98,30 @@ function DashboardBreadcrumb() {
         ))}
       </BreadcrumbList>
     </Breadcrumb>
-  )
+  );
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const { isAuthenticated, isReady, user } = useAuth()
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated, isReady, user } = useAuth();
 
   useEffect(() => {
-    if (!isReady) return
+    if (!isReady) return;
 
     if (!isAuthenticated) {
-      router.replace("/login")
-      return
+      router.replace("/login");
+      return;
     }
 
     if (!canAccessDashboardRoute(pathname, user)) {
-      router.replace(getDefaultDashboardPath(user))
+      router.replace(getDefaultDashboardPath(user));
     }
-  }, [isAuthenticated, isReady, pathname, router, user])
+  }, [isAuthenticated, isReady, pathname, router, user]);
 
   if (!isReady) {
     return (
@@ -125,11 +140,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (!isAuthenticated || !canAccessDashboardRoute(pathname, user)) {
-    return null
+    return null;
   }
 
   return (
@@ -142,11 +157,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DashboardBreadcrumb />
           <div className="ml-auto flex items-center gap-1">
             <ThemeToggle />
-
           </div>
         </header>
         <main className="flex-1 p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

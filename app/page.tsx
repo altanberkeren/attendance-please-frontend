@@ -1,28 +1,28 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
-import Image from "next/image"
-import { useAuth } from "@/hooks/use-auth"
-import { consumePendingAuthRedirect } from "@/lib/auth/pending-redirect"
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { consumePendingAuthRedirect } from "@/lib/auth/pending-redirect";
 
 export default function RootPage() {
-  const router = useRouter()
-  const { isAuthenticated, isReady } = useAuth()
+  const router = useRouter();
+  const { isAuthenticated, isReady } = useAuth();
 
   useEffect(() => {
     if (!isReady) {
-      return
+      return;
     }
 
     if (isAuthenticated) {
-      router.replace(consumePendingAuthRedirect() ?? "/overview")
-      return
+      router.replace(consumePendingAuthRedirect() ?? "/overview");
+      return;
     }
 
-    router.replace("/login")
-  }, [isAuthenticated, isReady, router])
+    router.replace("/login");
+  }, [isAuthenticated, isReady, router]);
 
   return (
     <div className="min-h-screen grid place-items-center p-6">
@@ -42,5 +42,5 @@ export default function RootPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
