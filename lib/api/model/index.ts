@@ -54,6 +54,7 @@ export * from './updateCourseOfferingCommand';
 export * from './updateEnrollmentSectionCommand';
 export * from './updateModuleCommand';
 export * from './updateSectionCommand';
+export * from './updateStaffCommand';
 export * from './updateTermCommand';
 export * from './userDto';
 export * from './userRole';

@@ -780,6 +780,68 @@
       }
     },
     "/api/CourseOfferingStaffs/{id}": {
+      "put": {
+        "tags": [
+          "CourseOfferingStaffs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "CourseOfferingStaffs"
@@ -3694,6 +3756,47 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "UpdateStaffCommand": {
+        "required": [
+          "id",
+          "scope",
+          "accessLevel",
+          "sectionId",
+          "roleTitle"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseOfferingStaffScope"
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/CourseOfferingStaffAccessLevel"
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "roleTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  UserPlus,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -39,6 +40,7 @@ import {
   usePostApiCourseOfferings,
   usePutApiCourseOfferingsId,
 } from "@/lib/api/course-offerings/course-offerings";
+import { usePostApiCourseOfferingStaffs } from "@/lib/api/course-offering-staffs/course-offering-staffs";
 import {
   getGetApiCoursesQueryKey,
   useGetApiCourses,
@@ -53,7 +55,9 @@ import type {
   TermDto,
   UpdateCourseOfferingCommand,
   UpdateTermCommand,
+  UserDto,
 } from "@/lib/api/model";
+import { CourseOfferingStaffAccessLevel, CourseOfferingStaffScope } from "@/lib/api/model";
 import {
   getGetApiTermsQueryKey,
   useDeleteApiTermsId,
@@ -61,6 +65,7 @@ import {
   usePostApiTerms,
   usePutApiTermsId,
 } from "@/lib/api/terms/terms";
+import { useGetApiUsers } from "@/lib/api/users/users";
 
 function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
   return arr.reduce<Record<string, T[]>>((acc, item) => {
@@ -215,6 +220,12 @@ function TermEditDialog({
 
 type DeleteRequest = { kind: "offering" | "term"; id: number | string; title: string; description: string };
 
+type InitialStaffAssignment = {
+  userId: number | string;
+  accessLevel: typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel];
+  roleTitle: string | null;
+};
+
 function DeleteConfirmationDialog({ request, onOpenChange, onConfirm }: { request: DeleteRequest | null; onOpenChange: (open: boolean) => void; onConfirm: () => void }) {
   return (
     <Dialog open={request !== null} onOpenChange={onOpenChange}>
@@ -235,29 +246,37 @@ function OfferingDialog({
   onOpenChange,
   courses,
   terms,
+  users,
   onCourseCreate,
   onTermCreate,
   onSubmit,
   editing,
   creatingCourse,
   creatingTerm,
+  saving,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   courses: CourseDto[];
   terms: TermDto[];
+  users: UserDto[];
   onCourseCreate: (c: CreateCourseCommand, onCreated: (c: CourseDto) => void) => void;
   onTermCreate: (t: CreateTermCommand, onCreated: (t: TermDto) => void) => void;
-  onSubmit: (data: CreateCourseOfferingCommand | UpdateCourseOfferingCommand) => void;
+  onSubmit: (data: CreateCourseOfferingCommand | UpdateCourseOfferingCommand, initialStaff: InitialStaffAssignment[]) => Promise<void> | void;
   editing: CourseOfferingDto | null;
   creatingCourse?: boolean;
   creatingTerm?: boolean;
+  saving?: boolean;
 }) {
   const [courseId, setCourseId] = useState("");
   const [termId, setTermId] = useState("");
   const [note, setNote] = useState("");
   const [courseForm, setCourseForm] = useState<string | null>(null);
   const [termForm, setTermForm] = useState<string | null>(null);
+  const [staffUserId, setStaffUserId] = useState("");
+  const [staffAccessLevel, setStaffAccessLevel] = useState<typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel]>(CourseOfferingStaffAccessLevel.Instructor);
+  const [staffRoleTitle, setStaffRoleTitle] = useState("");
+  const [initialStaff, setInitialStaff] = useState<InitialStaffAssignment[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -266,25 +285,46 @@ function OfferingDialog({
     setNote(editing?.note ?? "");
     setCourseForm(null);
     setTermForm(null);
+    setStaffUserId("");
+    setStaffAccessLevel(CourseOfferingStaffAccessLevel.Instructor);
+    setStaffRoleTitle("");
+    setInitialStaff([]);
   }, [open, editing]);
 
   const courseOptions = courses.map((c) => ({ value: String(c.id), label: c.title, sublabel: c.code }));
   const termOptions = terms.map((t) => ({ value: String(t.id), label: t.code, sublabel: `${formatDate(t.startDate)} → ${formatDate(t.endDate)}` }));
+  const selectedStaffUserIds = new Set(initialStaff.map((staff) => String(staff.userId)));
+  const staffAccessLevels = Object.values(CourseOfferingStaffAccessLevel);
 
-  function handleSubmit() {
+  function addInitialStaff() {
+    if (!staffUserId || selectedStaffUserIds.has(staffUserId)) return;
+    setInitialStaff((current) => [
+      ...current,
+      {
+        userId: staffUserId,
+        accessLevel: staffAccessLevel,
+        roleTitle: staffRoleTitle.trim() || null,
+      },
+    ]);
+    setStaffUserId("");
+    setStaffAccessLevel(CourseOfferingStaffAccessLevel.Instructor);
+    setStaffRoleTitle("");
+  }
+
+  async function handleSubmit() {
     if (editing) {
-      onSubmit({ id: editing.id, note: note.trim() || null });
+      await onSubmit({ id: editing.id, note: note.trim() || null }, []);
       onOpenChange(false);
       return;
     }
     if (!courseId || !termId) return;
-    onSubmit({ courseId, termId, note: note.trim() || null });
+    await onSubmit({ courseId, termId, note: note.trim() || null }, initialStaff);
     onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader><DialogTitle>{editing ? "Edit Offering" : "New Course Offering"}</DialogTitle></DialogHeader>
         <div className="space-y-4 py-1">
           <div className="space-y-2">
@@ -319,6 +359,54 @@ function OfferingDialog({
               <InlineTermForm initialName={termForm} saving={creatingTerm} onSave={(t) => onTermCreate(t, (created) => { setTermId(String(created.id)); setTermForm(null); })} onCancel={() => setTermForm(null)} />
             )}
           </div>
+          {!editing ? (
+            <div className="rounded-xl border bg-muted/20 p-3 space-y-3">
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 rounded-md bg-primary/10 p-1.5 text-primary">
+                  <UserPlus className="h-4 w-4" />
+                </div>
+                <div>
+                  <Label>Initial Staff</Label>
+                  <p className="text-xs text-muted-foreground">Add offering-level instructors, assistants, viewers, or owners after creation.</p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
+                <select value={staffUserId} onChange={(event) => setStaffUserId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                  <option value="">Select a user…</option>
+                  {users.map((user) => (
+                    <option key={String(user.id)} value={String(user.id)} disabled={selectedStaffUserIds.has(String(user.id))}>
+                      {user.name} · {user.email} · {user.role}
+                    </option>
+                  ))}
+                </select>
+                <select value={staffAccessLevel} onChange={(event) => setStaffAccessLevel(event.target.value as typeof staffAccessLevel)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                  {staffAccessLevels.map((level) => <option key={level} value={level}>{level}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Input value={staffRoleTitle} onChange={(event) => setStaffRoleTitle(event.target.value)} placeholder="Title, e.g. Lead Instructor" />
+                <Button type="button" variant="outline" onClick={addInitialStaff} disabled={!staffUserId}>Add</Button>
+              </div>
+              {initialStaff.length > 0 ? (
+                <div className="space-y-1.5">
+                  {initialStaff.map((staff) => {
+                    const user = users.find((candidate) => String(candidate.id) === String(staff.userId));
+                    return (
+                      <div key={String(staff.userId)} className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{user?.name ?? `User #${staff.userId}`}</p>
+                          <p className="truncate text-xs text-muted-foreground">{staff.accessLevel}{staff.roleTitle ? ` · ${staff.roleTitle}` : ""}</p>
+                        </div>
+                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setInitialStaff((current) => current.filter((item) => String(item.userId) !== String(staff.userId)))} aria-label={`Remove ${user?.name ?? "staff"}`}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label>Note</Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for this offering" />
@@ -326,7 +414,7 @@ function OfferingDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={(!editing && (!courseId || !termId)) || courseForm !== null || termForm !== null}>{editing ? "Save" : "Create"}</Button>
+          <Button onClick={handleSubmit} disabled={saving || (!editing && (!courseId || !termId)) || courseForm !== null || termForm !== null}>{editing ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -345,9 +433,11 @@ export default function CourseOfferingsPage() {
   const offeringsQuery = useGetApiCourseOfferings();
   const coursesQuery = useGetApiCourses();
   const termsQuery = useGetApiTerms();
+  const usersQuery = useGetApiUsers();
   const offerings = offeringsQuery.data ?? [];
   const courses = coursesQuery.data ?? [];
   const terms = termsQuery.data ?? [];
+  const users = usersQuery.data ?? [];
 
   const invalidateOfferings = () => queryClient.invalidateQueries({ queryKey: getGetApiCourseOfferingsQueryKey() });
   const invalidateCourses = () => queryClient.invalidateQueries({ queryKey: getGetApiCoursesQueryKey() });
@@ -358,6 +448,7 @@ export default function CourseOfferingsPage() {
   const deleteOffering = useDeleteApiCourseOfferingsId({ mutation: { onSuccess: invalidateOfferings } });
   const createCourse = usePostApiCourses({ mutation: { onSuccess: invalidateCourses } });
   const createTerm = usePostApiTerms({ mutation: { onSuccess: invalidateTerms } });
+  const assignStaff = usePostApiCourseOfferingStaffs();
   const updateTerm = usePutApiTermsId({ mutation: { onSuccess: () => { invalidateTerms(); invalidateOfferings(); } } });
   const deleteTerm = useDeleteApiTermsId({ mutation: { onSuccess: () => { invalidateTerms(); invalidateOfferings(); } } });
 
@@ -387,7 +478,7 @@ export default function CourseOfferingsPage() {
   }
 
   const loading = offeringsQuery.isLoading || coursesQuery.isLoading || termsQuery.isLoading;
-  const hasError = offeringsQuery.error || coursesQuery.error || termsQuery.error || createOffering.error || updateOffering.error || deleteOffering.error || createCourse.error || createTerm.error || updateTerm.error || deleteTerm.error;
+  const hasError = offeringsQuery.error || coursesQuery.error || termsQuery.error || usersQuery.error || createOffering.error || updateOffering.error || deleteOffering.error || createCourse.error || createTerm.error || assignStaff.error || updateTerm.error || deleteTerm.error;
 
   return (
     <div className="space-y-8 max-w-screen-xl">
@@ -463,14 +554,31 @@ export default function CourseOfferingsPage() {
         onOpenChange={setDialog}
         courses={courses}
         terms={terms}
+        users={users}
         editing={editing}
         creatingCourse={createCourse.isPending}
         creatingTerm={createTerm.isPending}
+        saving={createOffering.isPending || updateOffering.isPending || assignStaff.isPending}
         onCourseCreate={(data, onCreated) => createCourse.mutate({ data }, { onSuccess: onCreated })}
         onTermCreate={(data, onCreated) => createTerm.mutate({ data }, { onSuccess: onCreated })}
-        onSubmit={(data) => {
-          if ("courseId" in data) createOffering.mutate({ data });
-          else updateOffering.mutate({ id: data.id, data });
+        onSubmit={async (data, initialStaff) => {
+          if ("courseId" in data) {
+            const offering = await createOffering.mutateAsync({ data });
+            for (const staff of initialStaff) {
+              await assignStaff.mutateAsync({
+                data: {
+                  courseOfferingId: offering.id,
+                  userId: staff.userId,
+                  scope: CourseOfferingStaffScope.Offering,
+                  accessLevel: staff.accessLevel,
+                  sectionId: null,
+                  roleTitle: staff.roleTitle,
+                },
+              });
+            }
+          } else {
+            await updateOffering.mutateAsync({ id: data.id, data });
+          }
         }}
       />
       <TermEditDialog open={termDialogOpen} onOpenChange={setTermDialogOpen} term={editingTerm} onSave={(data) => updateTerm.mutate({ id: data.id, data })} onDelete={requestTermDelete} />

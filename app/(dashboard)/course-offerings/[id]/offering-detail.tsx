@@ -18,7 +18,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BulkEnrollModal } from "@/components/enrollment/bulk-enroll-modal";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +60,7 @@ import {
   useDeleteApiCourseOfferingStaffsId,
   useGetApiCourseOfferingStaffs,
   usePostApiCourseOfferingStaffs,
+  usePutApiCourseOfferingStaffsId,
 } from "@/lib/api/course-offering-staffs/course-offering-staffs";
 import { useGetApiCourseOfferingsId } from "@/lib/api/course-offerings/course-offerings";
 import {
@@ -69,7 +70,7 @@ import {
   usePostApiEnrollments,
   usePutApiEnrollmentsIdSection,
 } from "@/lib/api/enrollments/enrollments";
-import type { EnrollmentDto, SectionDto, SessionDto, UserDto } from "@/lib/api/model";
+import type { CourseOfferingStaffDto, EnrollmentDto, SectionDto, SessionDto, UserDto } from "@/lib/api/model";
 import {
   AttendanceMethod,
   AttendanceStatus,
@@ -449,6 +450,122 @@ function StaffAssignmentDialog({
   );
 }
 
+function StaffEditDialog({
+  open,
+  onOpenChange,
+  assignment,
+  sections,
+  assignedKeys,
+  pending,
+  allowOfferingScope,
+  canAssignOwner,
+  onUpdate,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  assignment: CourseOfferingStaffDto | null;
+  sections: SectionDto[];
+  assignedKeys: Set<string>;
+  pending: boolean;
+  allowOfferingScope: boolean;
+  canAssignOwner: boolean;
+  onUpdate: (assignment: {
+    id: number | string;
+    scope: typeof CourseOfferingStaffScope[keyof typeof CourseOfferingStaffScope];
+    accessLevel: typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel];
+    sectionId: number | string | null;
+    roleTitle: string | null;
+  }) => void;
+}) {
+  const [scope, setScope] = useState<typeof CourseOfferingStaffScope[keyof typeof CourseOfferingStaffScope]>(CourseOfferingStaffScope.Section);
+  const [accessLevel, setAccessLevel] = useState<typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel]>(CourseOfferingStaffAccessLevel.Assistant);
+  const [sectionId, setSectionId] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
+
+  useEffect(() => {
+    if (!assignment) return;
+    setScope(assignment.scope);
+    setAccessLevel(assignment.accessLevel);
+    setSectionId(assignment.sectionId == null ? "" : String(assignment.sectionId));
+    setRoleTitle(assignment.roleTitle ?? "");
+  }, [assignment]);
+
+  const currentKey = assignment
+    ? `${assignment.userId}:${assignment.scope}:${assignment.scope === CourseOfferingStaffScope.Section ? String(assignment.sectionId) : ""}`
+    : "";
+  const selectedKey = assignment ? `${assignment.userId}:${scope}:${scope === CourseOfferingStaffScope.Section ? sectionId : ""}` : "";
+  const accessLevels = Object.values(CourseOfferingStaffAccessLevel).filter((level) => canAssignOwner || level !== CourseOfferingStaffAccessLevel.Owner);
+  const canSave = Boolean(
+    assignment &&
+    (allowOfferingScope || scope === CourseOfferingStaffScope.Section) &&
+    (scope === CourseOfferingStaffScope.Offering || sectionId) &&
+    (selectedKey === currentKey || !assignedKeys.has(selectedKey)),
+  );
+
+  function handleUpdate() {
+    if (!assignment || !canSave) return;
+    onUpdate({
+      id: assignment.id,
+      scope,
+      accessLevel,
+      sectionId: scope === CourseOfferingStaffScope.Section ? sectionId : null,
+      roleTitle: roleTitle.trim() || null,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit course access</DialogTitle>
+          <DialogDescription>
+            Update scope, access level, section, or title for {assignment?.userName ?? "this staff member"}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">{assignment?.userName}</p>
+            <p className="text-xs text-muted-foreground">{assignment?.userEmail}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Scope</Label>
+              <select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                {allowOfferingScope ? <option value={CourseOfferingStaffScope.Offering}>Offering</option> : null}
+                <option value={CourseOfferingStaffScope.Section}>Section</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Access</Label>
+              <select value={accessLevel} onChange={(event) => setAccessLevel(event.target.value as typeof accessLevel)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                {accessLevels.map((level) => <option key={level} value={level}>{level}</option>)}
+              </select>
+            </div>
+          </div>
+          {scope === CourseOfferingStaffScope.Section ? (
+            <div className="space-y-2">
+              <Label>Section</Label>
+              <select value={sectionId} onChange={(event) => setSectionId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">Select a section…</option>
+                {sections.map((section) => <option key={String(section.id)} value={String(section.id)}>{section.name}</option>)}
+              </select>
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <Label>Title</Label>
+            <Input value={roleTitle} onChange={(event) => setRoleTitle(event.target.value)} placeholder="e.g. TA, Lab Assistant, Guest Lecturer" />
+          </div>
+          {selectedKey !== currentKey && assignedKeys.has(selectedKey) ? <p className="text-xs text-destructive">This user already has this exact assignment.</p> : null}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleUpdate} disabled={!canSave || pending}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SectionManager({
   sections,
   enrollments,
@@ -660,6 +777,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const [bulkEnrollOpen, setBulkEnrollOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [staffDialogOpen, setStaffDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<CourseOfferingStaffDto | null>(null);
   const [activeSectionId, setActiveSectionId] = useState<string>(
     requestedSectionId ?? "all",
   );
@@ -681,6 +799,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const { mutateAsync: enrollStudent } = usePostApiEnrollments();
   const { mutateAsync: deleteEnrollment } = useDeleteApiEnrollmentsId();
   const assignStaff = usePostApiCourseOfferingStaffs();
+  const updateStaff = usePutApiCourseOfferingStaffsId();
   const removeStaff = useDeleteApiCourseOfferingStaffsId();
   const { mutateAsync: updateEnrollmentSection } =
     usePutApiEnrollmentsIdSection();
@@ -731,6 +850,12 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const manageableStaffSections = isAdmin || isOfferingOwner
     ? sections
     : sections.filter((section) => ownedSectionIds.has(String(section.id)));
+  const canManageStaffAssignment = (person: CourseOfferingStaffDto) => {
+    if (isAdmin) return true;
+    if (person.accessLevel === CourseOfferingStaffAccessLevel.Owner) return false;
+    if (person.scope === CourseOfferingStaffScope.Offering) return isOfferingOwner;
+    return isOfferingOwner || (person.sectionId != null && ownedSectionIds.has(String(person.sectionId)));
+  };
   const { data: apiUsers = [], isLoading: loadingUsers } = useGetApiUsers({ query: { enabled: canManageStaff } });
   const selectedSection =
     activeSectionId === "all"
@@ -794,7 +919,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const sectionsLoading = loadingSections;
   const sectionMutationPending =
     createSection.isPending || updateSection.isPending || deleteSection.isPending;
-  const staffMutationPending = assignStaff.isPending || removeStaff.isPending;
+  const staffMutationPending = assignStaff.isPending || updateStaff.isPending || removeStaff.isPending;
   const pageLoading = loadingOfferings && !apiOffering;
 
   const totalPresent =
@@ -875,6 +1000,27 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
       },
     });
     setStaffDialogOpen(false);
+    invalidateDetailQueries();
+  }
+
+  async function handleUpdateStaff(assignment: {
+    id: number | string;
+    scope: typeof CourseOfferingStaffScope[keyof typeof CourseOfferingStaffScope];
+    accessLevel: typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel];
+    sectionId: number | string | null;
+    roleTitle: string | null;
+  }) {
+    await updateStaff.mutateAsync({
+      id: assignment.id,
+      data: {
+        id: assignment.id,
+        scope: assignment.scope,
+        accessLevel: assignment.accessLevel,
+        sectionId: assignment.sectionId,
+        roleTitle: assignment.roleTitle,
+      },
+    });
+    setEditingStaff(null);
     invalidateDetailQueries();
   }
 
@@ -1146,29 +1292,37 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                           {scope === CourseOfferingStaffScope.Offering ? "Offering access" : "Section access"}
                         </p>
                         <div className="grid gap-2 sm:grid-cols-2">
-                          {scopedStaff.map((person) => (
-                            <div key={String(person.id)} className="rounded-lg border p-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium">{person.userName}</p>
-                                  <p className="truncate text-xs text-muted-foreground">{person.userEmail}</p>
+                          {scopedStaff.map((person) => {
+                            const canManageThisAssignment = canManageStaffAssignment(person);
+                            return (
+                              <div key={String(person.id)} className="rounded-lg border p-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium">{person.userName}</p>
+                                    <p className="truncate text-xs text-muted-foreground">{person.userEmail}</p>
+                                  </div>
+                                  {canManageThisAssignment ? (
+                                    <div className="flex gap-1">
+                                      <Button size="icon-xs" variant="ghost" disabled={staffMutationPending} onClick={() => setEditingStaff(person)} aria-label={`Edit ${person.userName}`}>
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <Button size="icon-xs" variant="ghost" className="text-destructive hover:text-destructive" disabled={staffMutationPending} onClick={() => handleRemoveStaff(person.id)} aria-label={`Remove ${person.userName}`}>
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  ) : null}
                                 </div>
-                                {canManageStaff && (isAdmin || person.accessLevel !== CourseOfferingStaffAccessLevel.Owner) ? (
-                                  <Button size="icon-xs" variant="ghost" className="text-destructive hover:text-destructive" disabled={staffMutationPending} onClick={() => handleRemoveStaff(person.id)} aria-label={`Remove ${person.userName}`}>
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                ) : null}
+                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                  <Badge variant="secondary">{person.accessLevel}</Badge>
+                                  <Badge variant="outline">{person.userRole}</Badge>
+                                  {person.sectionName ? <Badge variant="outline">{person.sectionName}</Badge> : null}
+                                </div>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                  {person.roleTitle ?? (person.scope === CourseOfferingStaffScope.Section ? "Section staff" : "Offering staff")}
+                                </p>
                               </div>
-                              <div className="mt-3 flex flex-wrap gap-1.5">
-                                <Badge variant="secondary">{person.accessLevel}</Badge>
-                                <Badge variant="outline">{person.userRole}</Badge>
-                                {person.sectionName ? <Badge variant="outline">{person.sectionName}</Badge> : null}
-                              </div>
-                              <p className="mt-2 text-sm text-muted-foreground">
-                                {person.roleTitle ?? (person.scope === CourseOfferingStaffScope.Section ? "Section staff" : "Offering staff")}
-                              </p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -1351,17 +1505,33 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
       </Tabs>
 
       {canManageStaff ? (
-        <StaffAssignmentDialog
-          open={staffDialogOpen}
-          onOpenChange={setStaffDialogOpen}
-          users={apiUsers}
-          sections={manageableStaffSections}
-          assignedKeys={assignedStaffKeys}
-          pending={staffMutationPending}
-          allowOfferingScope={isAdmin || isOfferingOwner}
-          canAssignOwner={isAdmin}
-          onAssign={handleAssignStaff}
-        />
+        <>
+          <StaffAssignmentDialog
+            open={staffDialogOpen}
+            onOpenChange={setStaffDialogOpen}
+            users={apiUsers}
+            sections={manageableStaffSections}
+            assignedKeys={assignedStaffKeys}
+            pending={staffMutationPending}
+            allowOfferingScope={isAdmin || isOfferingOwner}
+            canAssignOwner={isAdmin}
+            onAssign={handleAssignStaff}
+          />
+          <StaffEditDialog
+            key={String(editingStaff?.id ?? "no-editing-staff")}
+            open={!!editingStaff}
+            onOpenChange={(open) => {
+              if (!open) setEditingStaff(null);
+            }}
+            assignment={editingStaff}
+            sections={manageableStaffSections}
+            assignedKeys={assignedStaffKeys}
+            pending={staffMutationPending}
+            allowOfferingScope={isAdmin || isOfferingOwner}
+            canAssignOwner={isAdmin}
+            onUpdate={handleUpdateStaff}
+          />
+        </>
       ) : null}
       <BulkEnrollModal
         open={bulkEnrollOpen}
