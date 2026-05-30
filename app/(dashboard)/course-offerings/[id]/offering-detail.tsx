@@ -18,7 +18,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { BulkEnrollModal } from "@/components/enrollment/bulk-enroll-modal";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -79,18 +79,6 @@ import {
   getGetApiSessionsQueryKey,
   useGetApiSessions,
 } from "@/lib/api/sessions/sessions";
-import {
-  type CourseOffering,
-  MOCK_COURSE_OFFERINGS,
-} from "@/lib/mock/course-offerings";
-import {
-  MOCK_MODULES,
-  MOCK_OFFERINGS,
-  MOCK_SECTIONS,
-  MOCK_SESSIONS,
-  makeMockEnrollments,
-  makeMockMatrix,
-} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -137,25 +125,6 @@ function calcDuration(openedAt: string, closedAt: string | null) {
   );
   if (mins < 60) return `${mins}m`;
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-}
-
-function getMockSessionsForOffering(courseOfferingId: number | string) {
-  const moduleIds = new Set(
-    (MOCK_MODULES[String(courseOfferingId)] ?? []).map((m) => String(m.id)),
-  );
-  return MOCK_SESSIONS.filter((session) =>
-    moduleIds.has(String(session.moduleId)),
-  );
-}
-
-function getLegacyOfferingForStaffId(id: string) {
-  const staffOffering = MOCK_OFFERINGS.find((o) => String(o.id) === id);
-  if (!staffOffering) return null;
-  return (
-    MOCK_COURSE_OFFERINGS.find(
-      (o) => o.courseName === staffOffering.courseTitle,
-    ) ?? null
-  );
 }
 
 function shortStatus(status: string) {
@@ -542,13 +511,7 @@ function SectionManager({
   );
 }
 
-function StaffOfferingDetail({
-  offeringId,
-  legacyOffering,
-}: {
-  offeringId: string;
-  legacyOffering?: CourseOffering | null;
-}) {
+function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -564,48 +527,21 @@ function StaffOfferingDetail({
   const [activeSectionId, setActiveSectionId] = useState<string>(
     requestedSectionId ?? "all",
   );
-  const [localEnrollments, setLocalEnrollments] = useState<EnrollmentDto[]>([]);
-  const [editedEnrollments, setEditedEnrollments] = useState<
-    Record<string, Partial<EnrollmentDto>>
-  >({});
-  const [deletedEnrollmentIds, setDeletedEnrollmentIds] = useState<Set<string>>(
-    () => new Set(),
-  );
   const [editingEnrollment, setEditingEnrollment] =
     useState<EnrollmentDto | null>(null);
 
-  const numericId = Number(offeringId);
-  const mockMode = Number.isFinite(numericId) && numericId >= 9000;
-
   const { data: apiOffering, isLoading: loadingOfferings } =
-    useGetApiCourseOfferingsId(offeringId, {
-      query: { enabled: !mockMode },
-    });
+    useGetApiCourseOfferingsId(offeringId);
   const { data: apiMatrix, isLoading: loadingMatrix } =
-    useGetApiAttendancesMatrix(
-      { courseOfferingId: offeringId },
-      { query: { enabled: !mockMode } },
-    );
+    useGetApiAttendancesMatrix({ courseOfferingId: offeringId });
   const { data: apiStaff = [], isLoading: loadingStaff } =
-    useGetApiCourseOfferingStaffs(
-      { courseOfferingId: offeringId },
-      { query: { enabled: !mockMode } },
-    );
+    useGetApiCourseOfferingStaffs({ courseOfferingId: offeringId });
   const { data: apiSections = [], isLoading: loadingSections } =
-    useGetApiSections(
-      { courseOfferingId: offeringId },
-      { query: { enabled: !mockMode } },
-    );
+    useGetApiSections({ courseOfferingId: offeringId });
   const { data: apiEnrollments = [], isLoading: loadingEnrollments } =
-    useGetApiEnrollments(
-      { courseOfferingId: offeringId },
-      { query: { enabled: !mockMode } },
-    );
+    useGetApiEnrollments({ courseOfferingId: offeringId });
   const { data: apiSessions = [], isLoading: loadingSessions } =
-    useGetApiSessions(
-      { courseOfferingId: offeringId },
-      { query: { enabled: !mockMode } },
-    );
+    useGetApiSessions({ courseOfferingId: offeringId });
   const { mutateAsync: enrollStudent } = usePostApiEnrollments();
   const { mutateAsync: deleteEnrollment } = useDeleteApiEnrollmentsId();
   const { mutateAsync: updateEnrollmentSection } =
@@ -614,35 +550,16 @@ function StaffOfferingDetail({
   const updateSection = usePutApiSectionsId();
   const deleteSection = useDeleteApiSectionsId();
 
-  const mockOffering = MOCK_OFFERINGS.find(
-    (offering) => String(offering.id) === offeringId,
-  );
-  const header = mockMode ? mockOffering : apiOffering;
-  const displayName =
-    header?.courseTitle ?? legacyOffering?.courseName ?? "Course Offering";
+  const header = apiOffering;
+  const displayName = header?.courseTitle ?? "Course Offering";
   const displayCode = header?.courseCode ?? `Offering #${offeringId}`;
-  const displayTerm =
-    header?.termCode ?? legacyOffering?.termName ?? "Current term";
+  const displayTerm = header?.termCode ?? "Current term";
 
-  const sections = mockMode ? (MOCK_SECTIONS[offeringId] ?? []) : apiSections;
-  const matrix = mockMode ? makeMockMatrix(numericId) : apiMatrix;
-  const baseEnrollments = mockMode
-    ? makeMockEnrollments(numericId, sections, 45)
-    : apiEnrollments;
-  const enrollments = [...localEnrollments, ...baseEnrollments]
-    .filter((enrollment) => !deletedEnrollmentIds.has(String(enrollment.id)))
-    .map((enrollment) => ({
-      ...enrollment,
-      ...(editedEnrollments[String(enrollment.id)] ?? {}),
-    }));
-  const staff = mockMode
-    ? (legacyOffering?.staff ??
-      getLegacyOfferingForStaffId(offeringId)?.staff ??
-      [])
-    : apiStaff;
-  const sessions = mockMode
-    ? getMockSessionsForOffering(offeringId)
-    : apiSessions;
+  const sections = apiSections;
+  const matrix = apiMatrix;
+  const enrollments = apiEnrollments;
+  const staff = apiStaff;
+  const sessions = apiSessions;
   const selectedSection =
     activeSectionId === "all"
       ? null
@@ -698,15 +615,14 @@ function StaffOfferingDetail({
     });
   }
 
-  const matrixLoading = !mockMode && loadingMatrix;
-  const staffLoading = !mockMode && loadingStaff;
-  const enrollmentLoading =
-    !mockMode && (loadingEnrollments || loadingSections);
-  const sessionsLoading = !mockMode && loadingSessions;
-  const sectionsLoading = !mockMode && loadingSections;
+  const matrixLoading = loadingMatrix;
+  const staffLoading = loadingStaff;
+  const enrollmentLoading = loadingEnrollments || loadingSections;
+  const sessionsLoading = loadingSessions;
+  const sectionsLoading = loadingSections;
   const sectionMutationPending =
     createSection.isPending || updateSection.isPending || deleteSection.isPending;
-  const pageLoading = !mockMode && loadingOfferings && !apiOffering;
+  const pageLoading = loadingOfferings && !apiOffering;
 
   const totalPresent =
     filteredMatrix?.students.reduce(
@@ -732,61 +648,22 @@ function StaffOfferingDetail({
     sectionId: number | string;
     sectionName: string;
   }) {
-    if (!mockMode) {
-      await enrollStudent({
-        data: {
-          userId: student.userId,
-          courseOfferingId: offeringId,
-          sectionId: student.sectionId,
-        },
-      });
-      invalidateDetailQueries();
-      return;
-    }
-
-    setLocalEnrollments((prev) => [
-      {
-        id: `local-${student.userId}`,
+    await enrollStudent({
+      data: {
         userId: student.userId,
-        userName: student.userName,
         courseOfferingId: offeringId,
         sectionId: student.sectionId,
-        sectionName: student.sectionName,
-        createdAt: new Date().toISOString(),
       },
-      ...prev,
-    ]);
+    });
+    invalidateDetailQueries();
   }
 
   async function handleRemoveEnrollment(enrollment: EnrollmentDto) {
-    if (String(enrollment.id).startsWith("local-")) {
-      setLocalEnrollments((prev) =>
-        prev.filter((item) => String(item.id) !== String(enrollment.id)),
-      );
-      setEditedEnrollments((prev) => {
-        const next = { ...prev };
-        delete next[String(enrollment.id)];
-        return next;
-      });
-      return;
-    }
-
-    if (!mockMode) {
-      await deleteEnrollment({ id: enrollment.id });
-      invalidateDetailQueries();
-      return;
-    }
-
-    setDeletedEnrollmentIds((prev) => new Set(prev).add(String(enrollment.id)));
-    setEditedEnrollments((prev) => {
-      const next = { ...prev };
-      delete next[String(enrollment.id)];
-      return next;
-    });
+    await deleteEnrollment({ id: enrollment.id });
+    invalidateDetailQueries();
   }
 
   async function handleCreateSection(name: string) {
-    if (mockMode) return;
     await createSection.mutateAsync({
       data: { courseOfferingId: offeringId, name },
     });
@@ -794,7 +671,6 @@ function StaffOfferingDetail({
   }
 
   async function handleRenameSection(section: SectionDto, name: string) {
-    if (mockMode) return;
     await updateSection.mutateAsync({
       id: section.id,
       data: { id: section.id, name },
@@ -803,7 +679,6 @@ function StaffOfferingDetail({
   }
 
   async function handleDeleteSection(section: SectionDto) {
-    if (mockMode) return;
     await deleteSection.mutateAsync({ id: section.id });
     if (activeSectionId === String(section.id)) setActiveSectionId("all");
     invalidateDetailQueries();
@@ -817,36 +692,11 @@ function StaffOfferingDetail({
   }) {
     if (!editingEnrollment) return;
 
-    const patch: Partial<EnrollmentDto> = {
-      userId: student.userId,
-      userName: student.userName,
-      sectionId: student.sectionId,
-      sectionName: student.sectionName,
-    };
-
-    if (String(editingEnrollment.id).startsWith("local-")) {
-      setLocalEnrollments((prev) =>
-        prev.map((item) =>
-          String(item.id) === String(editingEnrollment.id)
-            ? { ...item, ...patch }
-            : item,
-        ),
-      );
-    } else {
-      if (!mockMode) {
-        await updateEnrollmentSection({
-          id: editingEnrollment.id,
-          data: { id: editingEnrollment.id, sectionId: student.sectionId },
-        });
-        invalidateDetailQueries();
-      } else {
-        setEditedEnrollments((prev) => ({
-          ...prev,
-          [String(editingEnrollment.id)]: patch,
-        }));
-      }
-    }
-
+    await updateEnrollmentSection({
+      id: editingEnrollment.id,
+      data: { id: editingEnrollment.id, sectionId: student.sectionId },
+    });
+    invalidateDetailQueries();
     setEditingEnrollment(null);
   }
 
@@ -1084,19 +934,10 @@ function StaffOfferingDetail({
                       key={String(person.id)}
                       className="rounded-lg border p-3"
                     >
-                      <p className="font-medium">
-                        {"userName" in person ? person.userName : person.name}
-                      </p>
+                      <p className="font-medium">{person.userName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {"roleTitle" in person
-                          ? (person.roleTitle ?? "Staff")
-                          : person.role}
+                        {person.roleTitle ?? "Staff"}
                       </p>
-                      {"email" in person && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {person.email}
-                        </p>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -1299,15 +1140,5 @@ function StaffOfferingDetail({
 }
 
 export function OfferingDetail({ offeringId }: { offeringId: string }) {
-  const legacyOffering = useMemo(
-    () => getLegacyOfferingForStaffId(offeringId),
-    [offeringId],
-  );
-
-  return (
-    <StaffOfferingDetail
-      offeringId={offeringId}
-      legacyOffering={legacyOffering}
-    />
-  );
+  return <StaffOfferingDetail offeringId={offeringId} />;
 }
