@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import Image from "next/image"
 import Link from "next/link"
@@ -433,5 +433,5 @@ export default function HomePage() {
         <div className="border-t border-white/5 py-5 text-center text-xs text-[#6f7889]">© {new Date().getFullYear()} {CONTACT.university} · {CONTACT.tagline}</div>
       </footer>
     </div>
-  )
+  );
 }

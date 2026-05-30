@@ -24,9 +24,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BulkEnrollStudentsCommand,
+  BulkEnrollStudentsResult,
   EnrollStudentCommand,
   EnrollmentDto,
   GetApiEnrollmentsParams,
+  MyEnrollmentDto,
   UpdateEnrollmentSectionCommand
 } from '../model';
 
@@ -179,7 +182,64 @@ export function useGetApiEnrollments<TData = Awaited<ReturnType<typeof getApiEnr
 
 
 
-export const putApiEnrollmentsIdSection = (
+export const postApiEnrollmentsBulk = (
+    bulkEnrollStudentsCommand: BulkEnrollStudentsCommand,
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<BulkEnrollStudentsResult>(
+      {url: `/api/Enrollments/bulk`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: bulkEnrollStudentsCommand, signal
+    },
+      );
+    }
+
+
+
+export const getPostApiEnrollmentsBulkMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, TError,{data: BulkEnrollStudentsCommand}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, TError,{data: BulkEnrollStudentsCommand}, TContext> => {
+
+const mutationKey = ['postApiEnrollmentsBulk'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, {data: BulkEnrollStudentsCommand}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postApiEnrollmentsBulk(data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiEnrollmentsBulkMutationResult = NonNullable<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>>
+    export type PostApiEnrollmentsBulkMutationBody = BulkEnrollStudentsCommand
+    export type PostApiEnrollmentsBulkMutationError = unknown
+
+    export const usePostApiEnrollmentsBulk = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, TError,{data: BulkEnrollStudentsCommand}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiEnrollmentsBulk>>,
+        TError,
+        {data: BulkEnrollStudentsCommand},
+        TContext
+      > => {
+      return useMutation(getPostApiEnrollmentsBulkMutationOptions(options), queryClient);
+    }
+    export const putApiEnrollmentsIdSection = (
     id: number | string,
     updateEnrollmentSectionCommand: UpdateEnrollmentSectionCommand,
  signal?: AbortSignal
@@ -367,6 +427,92 @@ export function useGetApiEnrollmentsId<TData = Awaited<ReturnType<typeof getApiE
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetApiEnrollmentsIdQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+export const getApiEnrollmentsMe = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<MyEnrollmentDto[]>(
+      {url: `/api/Enrollments/me`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetApiEnrollmentsMeQueryKey = () => {
+    return [
+    `/api/Enrollments/me`
+    ] as const;
+    }
+
+
+export const getGetApiEnrollmentsMeQueryOptions = <TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiEnrollmentsMeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiEnrollmentsMe>>> = ({ signal }) => getApiEnrollmentsMe(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiEnrollmentsMeQueryResult = NonNullable<Awaited<ReturnType<typeof getApiEnrollmentsMe>>>
+export type GetApiEnrollmentsMeQueryError = unknown
+
+
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>,
+          TError,
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>,
+          TError,
+          Awaited<ReturnType<typeof getApiEnrollmentsMe>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetApiEnrollmentsMe<TData = Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiEnrollmentsMe>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiEnrollmentsMeQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

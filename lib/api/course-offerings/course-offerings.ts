@@ -26,6 +26,7 @@ import type {
 import type {
   CourseOfferingDto,
   CreateCourseOfferingCommand,
+  GetApiCourseOfferingsParams,
   UpdateCourseOfferingCommand
 } from '../model';
 
@@ -92,13 +93,14 @@ const {mutation: mutationOptions} = options ?
       return useMutation(getPostApiCourseOfferingsMutationOptions(options), queryClient);
     }
     export const getApiCourseOfferings = (
-
+    params?: GetApiCourseOfferingsParams,
  signal?: AbortSignal
 ) => {
 
 
       return customInstance<CourseOfferingDto[]>(
-      {url: `/api/CourseOfferings`, method: 'GET', signal
+      {url: `/api/CourseOfferings`, method: 'GET',
+        params, signal
     },
       );
     }
@@ -106,23 +108,23 @@ const {mutation: mutationOptions} = options ?
 
 
 
-export const getGetApiCourseOfferingsQueryKey = () => {
+export const getGetApiCourseOfferingsQueryKey = (params?: GetApiCourseOfferingsParams,) => {
     return [
-    `/api/CourseOfferings`
+    `/api/CourseOfferings`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetApiCourseOfferingsQueryOptions = <TData = Awaited<ReturnType<typeof getApiCourseOfferings>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>>, }
+export const getGetApiCourseOfferingsQueryOptions = <TData = Awaited<ReturnType<typeof getApiCourseOfferings>>, TError = unknown>(params?: GetApiCourseOfferingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetApiCourseOfferingsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetApiCourseOfferingsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiCourseOfferings>>> = ({ signal }) => getApiCourseOfferings(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiCourseOfferings>>> = ({ signal }) => getApiCourseOfferings(params, signal);
 
 
 
@@ -136,7 +138,7 @@ export type GetApiCourseOfferingsQueryError = unknown
 
 
 export function useGetApiCourseOfferings<TData = Awaited<ReturnType<typeof getApiCourseOfferings>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>> & Pick<
+ params: undefined |  GetApiCourseOfferingsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getApiCourseOfferings>>,
           TError,
@@ -146,7 +148,7 @@ export function useGetApiCourseOfferings<TData = Awaited<ReturnType<typeof getAp
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useGetApiCourseOfferings<TData = Awaited<ReturnType<typeof getApiCourseOfferings>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>> & Pick<
+ params?: GetApiCourseOfferingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getApiCourseOfferings>>,
           TError,
@@ -156,16 +158,16 @@ export function useGetApiCourseOfferings<TData = Awaited<ReturnType<typeof getAp
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useGetApiCourseOfferings<TData = Awaited<ReturnType<typeof getApiCourseOfferings>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>>, }
+ params?: GetApiCourseOfferingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 
 export function useGetApiCourseOfferings<TData = Awaited<ReturnType<typeof getApiCourseOfferings>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>>, }
+ params?: GetApiCourseOfferingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiCourseOfferings>>, TError, TData>>, }
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetApiCourseOfferingsQueryOptions(options)
+  const queryOptions = getGetApiCourseOfferingsQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

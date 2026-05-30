@@ -26,7 +26,8 @@ import type {
 import type {
   AssignStaffCommand,
   CourseOfferingStaffDto,
-  GetApiCourseOfferingStaffsParams
+  GetApiCourseOfferingStaffsParams,
+  UpdateStaffCommand
 } from '../model';
 
 import { customInstance } from '../../axios-instance';
@@ -178,7 +179,65 @@ export function useGetApiCourseOfferingStaffs<TData = Awaited<ReturnType<typeof 
 
 
 
-export const deleteApiCourseOfferingStaffsId = (
+export const putApiCourseOfferingStaffsId = (
+    id: number | string,
+    updateStaffCommand: UpdateStaffCommand,
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<CourseOfferingStaffDto>(
+      {url: `/api/CourseOfferingStaffs/${id}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: updateStaffCommand, signal
+    },
+      );
+    }
+
+
+
+export const getPutApiCourseOfferingStaffsIdMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiCourseOfferingStaffsId>>, TError,{id: number | string;data: UpdateStaffCommand}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof putApiCourseOfferingStaffsId>>, TError,{id: number | string;data: UpdateStaffCommand}, TContext> => {
+
+const mutationKey = ['putApiCourseOfferingStaffsId'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiCourseOfferingStaffsId>>, {id: number | string;data: UpdateStaffCommand}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  putApiCourseOfferingStaffsId(id,data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutApiCourseOfferingStaffsIdMutationResult = NonNullable<Awaited<ReturnType<typeof putApiCourseOfferingStaffsId>>>
+    export type PutApiCourseOfferingStaffsIdMutationBody = UpdateStaffCommand
+    export type PutApiCourseOfferingStaffsIdMutationError = unknown
+
+    export const usePutApiCourseOfferingStaffsId = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiCourseOfferingStaffsId>>, TError,{id: number | string;data: UpdateStaffCommand}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putApiCourseOfferingStaffsId>>,
+        TError,
+        {id: number | string;data: UpdateStaffCommand},
+        TContext
+      > => {
+      return useMutation(getPutApiCourseOfferingStaffsIdMutationOptions(options), queryClient);
+    }
+    export const deleteApiCourseOfferingStaffsId = (
     id: number | string,
  signal?: AbortSignal
 ) => {

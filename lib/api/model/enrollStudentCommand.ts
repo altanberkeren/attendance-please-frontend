@@ -6,8 +6,15 @@
  */
 
 export interface EnrollStudentCommand {
-  /** @pattern ^-?(?:0|[1-9]\d*)$ */
-  userId: number | string;
+  /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+  userId: number | string | null;
+  /** @nullable */
+  studentNumber: string | null;
+  /** @nullable */
+  importedName: string | null;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   courseOfferingId: number | string;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */

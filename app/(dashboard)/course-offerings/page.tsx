@@ -1,245 +1,588 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  Layers, Plus, Pencil, Trash2, Users, UserCog,
-  CalendarCheck, ChevronRight, MoreHorizontal,
-} from "lucide-react"
-import { z } from "zod"
-import { CourseOffering, MOCK_COURSE_OFFERINGS } from "@/lib/mock/course-offerings"
-import { CrudDialog, FieldDef } from "@/components/crud-dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+  CalendarCheck,
+  ChevronRight,
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  UserPlus,
+  X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { CreatableCombobox } from "@/components/ui/creatable-combobox";
 import {
-  DropdownMenu, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  getGetApiCourseOfferingsQueryKey,
+  useDeleteApiCourseOfferingsId,
+  useGetApiCourseOfferings,
+  usePostApiCourseOfferings,
+  usePutApiCourseOfferingsId,
+} from "@/lib/api/course-offerings/course-offerings";
+import { usePostApiCourseOfferingStaffs } from "@/lib/api/course-offering-staffs/course-offering-staffs";
+import {
+  getGetApiCoursesQueryKey,
+  useGetApiCourses,
+  usePostApiCourses,
+} from "@/lib/api/courses/courses";
+import type {
+  CourseDto,
+  CourseOfferingDto,
+  CreateCourseCommand,
+  CreateCourseOfferingCommand,
+  CreateTermCommand,
+  TermDto,
+  UpdateCourseOfferingCommand,
+  UpdateTermCommand,
+  UserDto,
+} from "@/lib/api/model";
+import { CourseOfferingStaffAccessLevel, CourseOfferingStaffScope } from "@/lib/api/model";
+import {
+  getGetApiTermsQueryKey,
+  useDeleteApiTermsId,
+  useGetApiTerms,
+  usePostApiTerms,
+  usePutApiTermsId,
+} from "@/lib/api/terms/terms";
+import { useGetApiUsers } from "@/lib/api/users/users";
 
-// ── Schema ────────────────────────────────────────────────────────────────────
-
-const offeringSchema = z.object({
-  courseName: z.string().min(1, "Course name is required"),
-  termName:   z.string().min(1, "Term is required"),
-  section:    z.string().min(1, "Section is required"),
-})
-type OfferingFormValues = z.infer<typeof offeringSchema>
-
-const FIELDS: FieldDef[] = [
-  { name: "courseName", label: "Course name", placeholder: "Introduction to Computer Science" },
-  { name: "termName",   label: "Term",        placeholder: "Fall 2025" },
-  { name: "section",    label: "Section",     placeholder: "A" },
-]
-const EMPTY: OfferingFormValues = { courseName: "", termName: "", section: "" }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Group an array by a key */
 function groupBy<T>(arr: T[], key: (item: T) => string): Record<string, T[]> {
   return arr.reduce<Record<string, T[]>>((acc, item) => {
-    const k = key(item)
-    ;(acc[k] ??= []).push(item)
-    return acc
-  }, {})
+    const k = key(item);
+    acc[k] ??= [];
+    acc[k].push(item);
+    return acc;
+  }, {});
 }
 
-const SECTION_COLORS: Record<string, string> = {
-  A: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  B: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  C: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  D: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-}
-function sectionColor(sec: string) {
-  return SECTION_COLORS[sec.toUpperCase()] ?? "bg-primary/10 text-primary"
+function formatDate(value: string) {
+  return value ? new Date(value).toLocaleDateString() : "";
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+function InlineCourseForm({
+  initialName,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initialName: string;
+  onSave: (c: CreateCourseCommand) => void;
+  onCancel: () => void;
+  saving?: boolean;
+}) {
+  const [code, setCode] = useState(initialName);
+  const [title, setTitle] = useState("");
+  const valid = title.trim() && code.trim();
 
-export default function CourseOfferingsPage() {
-  const router = useRouter()
-  const [offerings, setOfferings] = useState<CourseOffering[]>(MOCK_COURSE_OFFERINGS)
-  const [dialogOpen, setDialog]   = useState(false)
-  const [editing, setEditing]     = useState<CourseOffering | null>(null)
+  return (
+    <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-primary">New Course</p>
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <Label className="text-xs">Code</Label>
+      <Input className="h-8 text-sm font-mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="CS101" autoFocus />
+      <Label className="text-xs">Title</Label>
+      <Input className="h-8 text-sm" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Introduction to Computer Science" />
+      <Button
+        size="sm"
+        className="h-8 w-full text-xs"
+        disabled={!valid || saving}
+        onClick={() => onSave({ code: code.trim().toUpperCase(), title: title.trim(), description: null })}
+      >
+        Add Course
+      </Button>
+    </div>
+  );
+}
 
-  function openCreate() { setEditing(null); setDialog(true) }
-  function openEdit(o: CourseOffering) { setEditing(o); setDialog(true) }
-  function handleDelete(id: string) { setOfferings((p) => p.filter((o) => o.id !== id)) }
+function InlineTermForm({
+  initialName,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initialName: string;
+  onSave: (t: CreateTermCommand) => void;
+  onCancel: () => void;
+  saving?: boolean;
+}) {
+  const [name, setName] = useState(initialName);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const valid = name.trim() && startDate && endDate;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function handleSubmit(raw: any) {
-    const v = raw as OfferingFormValues
-    if (editing) {
-      setOfferings((p) => p.map((o) => o.id === editing.id ? { ...o, ...v } : o))
-    } else {
-      setOfferings((p) => [
-        ...p,
-        { id: Date.now().toString(), courseId: "", termId: "", students: [], staff: [], sessions: [], ...v },
-      ])
-    }
+  return (
+    <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-primary">New Term</p>
+        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <Label className="text-xs">Term Name</Label>
+      <Input className="h-8 text-sm" value={name} onChange={(e) => setName(e.target.value)} placeholder="Fall 2025" autoFocus />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Start Date</Label>
+          <Input className="h-8 text-sm" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">End Date</Label>
+          <Input className="h-8 text-sm" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+      </div>
+      <Button size="sm" className="h-8 w-full text-xs" disabled={!valid || saving} onClick={() => onSave({ name: name.trim(), startDate, endDate })}>
+        Add Term
+      </Button>
+    </div>
+  );
+}
+
+function TermEditDialog({
+  open,
+  onOpenChange,
+  term,
+  onSave,
+  onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  term: TermDto | null;
+  onSave: (t: UpdateTermCommand) => void;
+  onDelete: (id: TermDto["id"]) => void;
+}) {
+  const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  useEffect(() => {
+    if (!open || !term) return;
+    setName(term.code);
+    setStartDate(term.startDate.slice(0, 10));
+    setEndDate(term.endDate.slice(0, 10));
+  }, [open, term]);
+
+  if (!term) return null;
+
+  const valid = name.trim() && startDate && endDate;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>Edit Term</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="space-y-2">
+            <Label>Term Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Fall 2025" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2"><Label>Start Date</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
+            <div className="space-y-2"><Label>End Date</Label><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></div>
+          </div>
+        </div>
+        <DialogFooter className="sm:justify-between">
+          <Button variant="outline" className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => onDelete(term.id)}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button disabled={!valid} onClick={() => { onSave({ id: term.id, name: name.trim(), startDate, endDate }); onOpenChange(false); }}>Save</Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type DeleteRequest = { kind: "offering" | "term"; id: number | string; title: string; description: string };
+
+type InitialStaffAssignment = {
+  userId: number | string;
+  accessLevel: typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel];
+  roleTitle: string | null;
+};
+
+function DeleteConfirmationDialog({ request, onOpenChange, onConfirm }: { request: DeleteRequest | null; onOpenChange: (open: boolean) => void; onConfirm: () => void }) {
+  return (
+    <Dialog open={request !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader><DialogTitle>{request?.title ?? "Delete item?"}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{request?.description}</p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={onConfirm}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OfferingDialog({
+  open,
+  onOpenChange,
+  courses,
+  terms,
+  users,
+  onCourseCreate,
+  onTermCreate,
+  onSubmit,
+  editing,
+  creatingCourse,
+  creatingTerm,
+  saving,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  courses: CourseDto[];
+  terms: TermDto[];
+  users: UserDto[];
+  onCourseCreate: (c: CreateCourseCommand, onCreated: (c: CourseDto) => void) => void;
+  onTermCreate: (t: CreateTermCommand, onCreated: (t: TermDto) => void) => void;
+  onSubmit: (data: CreateCourseOfferingCommand | UpdateCourseOfferingCommand, initialStaff: InitialStaffAssignment[]) => Promise<void> | void;
+  editing: CourseOfferingDto | null;
+  creatingCourse?: boolean;
+  creatingTerm?: boolean;
+  saving?: boolean;
+}) {
+  const [courseId, setCourseId] = useState("");
+  const [termId, setTermId] = useState("");
+  const [note, setNote] = useState("");
+  const [courseForm, setCourseForm] = useState<string | null>(null);
+  const [termForm, setTermForm] = useState<string | null>(null);
+  const [staffUserId, setStaffUserId] = useState("");
+  const [staffAccessLevel, setStaffAccessLevel] = useState<typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel]>(CourseOfferingStaffAccessLevel.Instructor);
+  const [staffRoleTitle, setStaffRoleTitle] = useState("");
+  const [initialStaff, setInitialStaff] = useState<InitialStaffAssignment[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    setCourseId(editing ? String(editing.courseId) : "");
+    setTermId(editing ? String(editing.termId) : "");
+    setNote(editing?.note ?? "");
+    setCourseForm(null);
+    setTermForm(null);
+    setStaffUserId("");
+    setStaffAccessLevel(CourseOfferingStaffAccessLevel.Instructor);
+    setStaffRoleTitle("");
+    setInitialStaff([]);
+  }, [open, editing]);
+
+  const courseOptions = courses.map((c) => ({ value: String(c.id), label: c.title, sublabel: c.code }));
+  const termOptions = terms.map((t) => ({ value: String(t.id), label: t.code, sublabel: `${formatDate(t.startDate)} → ${formatDate(t.endDate)}` }));
+  const selectedStaffUserIds = new Set(initialStaff.map((staff) => String(staff.userId)));
+  const staffAccessLevels = Object.values(CourseOfferingStaffAccessLevel);
+
+  function addInitialStaff() {
+    if (!staffUserId || selectedStaffUserIds.has(staffUserId)) return;
+    setInitialStaff((current) => [
+      ...current,
+      {
+        userId: staffUserId,
+        accessLevel: staffAccessLevel,
+        roleTitle: staffRoleTitle.trim() || null,
+      },
+    ]);
+    setStaffUserId("");
+    setStaffAccessLevel(CourseOfferingStaffAccessLevel.Instructor);
+    setStaffRoleTitle("");
   }
 
-  // Group offerings by term, most recent first
-  const grouped = groupBy(offerings, (o) => o.termName)
-  const termOrder = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
+  async function handleSubmit() {
+    if (editing) {
+      await onSubmit({ id: editing.id, note: note.trim() || null }, []);
+      onOpenChange(false);
+      return;
+    }
+    if (!courseId || !termId) return;
+    await onSubmit({ courseId, termId, note: note.trim() || null }, initialStaff);
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader><DialogTitle>{editing ? "Edit Offering" : "New Course Offering"}</DialogTitle></DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="space-y-2">
+            <Label>Course</Label>
+            <CreatableCombobox
+              options={courseOptions}
+              value={courseId}
+              onChange={(v) => { setCourseId(v); setCourseForm(null); }}
+              onCreate={(name) => { if (!editing) setCourseForm(name); }}
+              placeholder="Select or create a course…"
+              searchPlaceholder="Search courses…"
+              createLabel="Create course"
+            />
+            {editing ? <p className="text-xs text-muted-foreground">Course cannot be changed for an existing offering.</p> : null}
+            {courseForm !== null && !editing && (
+              <InlineCourseForm initialName={courseForm} saving={creatingCourse} onSave={(c) => onCourseCreate(c, (created) => { setCourseId(String(created.id)); setCourseForm(null); })} onCancel={() => setCourseForm(null)} />
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Term</Label>
+            <CreatableCombobox
+              options={termOptions}
+              value={termId}
+              onChange={(v) => { setTermId(v); setTermForm(null); }}
+              onCreate={(name) => { if (!editing) setTermForm(name); }}
+              placeholder="Select or create a term…"
+              searchPlaceholder="Search terms…"
+              createLabel="Create term"
+            />
+            {editing ? <p className="text-xs text-muted-foreground">Term cannot be changed for an existing offering.</p> : null}
+            {termForm !== null && !editing && (
+              <InlineTermForm initialName={termForm} saving={creatingTerm} onSave={(t) => onTermCreate(t, (created) => { setTermId(String(created.id)); setTermForm(null); })} onCancel={() => setTermForm(null)} />
+            )}
+          </div>
+          {!editing ? (
+            <div className="rounded-xl border bg-muted/20 p-3 space-y-3">
+              <div className="flex items-start gap-2">
+                <div className="mt-0.5 rounded-md bg-primary/10 p-1.5 text-primary">
+                  <UserPlus className="h-4 w-4" />
+                </div>
+                <div>
+                  <Label>Initial Staff</Label>
+                  <p className="text-xs text-muted-foreground">Add offering-level instructors, assistants, viewers, or owners after creation.</p>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_9rem]">
+                <select value={staffUserId} onChange={(event) => setStaffUserId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                  <option value="">Select a user…</option>
+                  {users.map((user) => (
+                    <option key={String(user.id)} value={String(user.id)} disabled={selectedStaffUserIds.has(String(user.id))}>
+                      {user.name} · {user.email} · {user.role}
+                    </option>
+                  ))}
+                </select>
+                <select value={staffAccessLevel} onChange={(event) => setStaffAccessLevel(event.target.value as typeof staffAccessLevel)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                  {staffAccessLevels.map((level) => <option key={level} value={level}>{level}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Input value={staffRoleTitle} onChange={(event) => setStaffRoleTitle(event.target.value)} placeholder="Title, e.g. Lead Instructor" />
+                <Button type="button" variant="outline" onClick={addInitialStaff} disabled={!staffUserId}>Add</Button>
+              </div>
+              {initialStaff.length > 0 ? (
+                <div className="space-y-1.5">
+                  {initialStaff.map((staff) => {
+                    const user = users.find((candidate) => String(candidate.id) === String(staff.userId));
+                    return (
+                      <div key={String(staff.userId)} className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{user?.name ?? `User #${staff.userId}`}</p>
+                          <p className="truncate text-xs text-muted-foreground">{staff.accessLevel}{staff.roleTitle ? ` · ${staff.roleTitle}` : ""}</p>
+                        </div>
+                        <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => setInitialStaff((current) => current.filter((item) => String(item.userId) !== String(staff.userId)))} aria-label={`Remove ${user?.name ?? "staff"}`}>
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <Label>Note</Label>
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for this offering" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving || (!editing && (!courseId || !termId)) || courseForm !== null || termForm !== null}>{editing ? "Save" : "Create"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function CourseOfferingsPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialog] = useState(false);
+  const [editing, setEditing] = useState<CourseOfferingDto | null>(null);
+  const [termDialogOpen, setTermDialogOpen] = useState(false);
+  const [editingTerm, setEditingTerm] = useState<TermDto | null>(null);
+  const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
+
+  const offeringsQuery = useGetApiCourseOfferings();
+  const coursesQuery = useGetApiCourses();
+  const termsQuery = useGetApiTerms();
+  const usersQuery = useGetApiUsers();
+  const offerings = offeringsQuery.data ?? [];
+  const courses = coursesQuery.data ?? [];
+  const terms = termsQuery.data ?? [];
+  const users = usersQuery.data ?? [];
+
+  const invalidateOfferings = () => queryClient.invalidateQueries({ queryKey: getGetApiCourseOfferingsQueryKey() });
+  const invalidateCourses = () => queryClient.invalidateQueries({ queryKey: getGetApiCoursesQueryKey() });
+  const invalidateTerms = () => queryClient.invalidateQueries({ queryKey: getGetApiTermsQueryKey() });
+
+  const createOffering = usePostApiCourseOfferings({ mutation: { onSuccess: invalidateOfferings } });
+  const updateOffering = usePutApiCourseOfferingsId({ mutation: { onSuccess: invalidateOfferings } });
+  const deleteOffering = useDeleteApiCourseOfferingsId({ mutation: { onSuccess: invalidateOfferings } });
+  const createCourse = usePostApiCourses({ mutation: { onSuccess: invalidateCourses } });
+  const createTerm = usePostApiTerms({ mutation: { onSuccess: invalidateTerms } });
+  const assignStaff = usePostApiCourseOfferingStaffs();
+  const updateTerm = usePutApiTermsId({ mutation: { onSuccess: () => { invalidateTerms(); invalidateOfferings(); } } });
+  const deleteTerm = useDeleteApiTermsId({ mutation: { onSuccess: () => { invalidateTerms(); invalidateOfferings(); } } });
+
+  const grouped = useMemo(() => groupBy(offerings, (o) => String(o.termId)), [offerings]);
+  const termOrder = Object.keys(grouped).sort((a, b) => {
+    const aName = terms.find((t) => String(t.id) === a)?.code ?? grouped[a][0].termCode;
+    const bName = terms.find((t) => String(t.id) === b)?.code ?? grouped[b][0].termCode;
+    return bName.localeCompare(aName);
+  });
+
+  function openCreate() { setEditing(null); setDialog(true); }
+  function openEdit(o: CourseOfferingDto) { setEditing(o); setDialog(true); }
+  function openTermEdit(term: TermDto) { setEditingTerm(term); setTermDialogOpen(true); }
+
+  function requestOfferingDelete(offering: CourseOfferingDto) {
+    setDeleteRequest({ kind: "offering", id: offering.id, title: "Delete course offering?", description: `Delete ${offering.courseCode} ${offering.courseTitle}? This action cannot be undone.` });
+  }
+  function requestTermDelete(id: TermDto["id"]) {
+    const term = terms.find((t) => t.id === id);
+    setDeleteRequest({ kind: "term", id, title: "Delete term?", description: `Delete ${term?.code ?? "this term"}? This action cannot be undone.` });
+  }
+  function confirmDeleteRequest() {
+    if (!deleteRequest) return;
+    if (deleteRequest.kind === "offering") deleteOffering.mutate({ id: deleteRequest.id });
+    else deleteTerm.mutate({ id: deleteRequest.id });
+    setDeleteRequest(null);
+  }
+
+  const loading = offeringsQuery.isLoading || coursesQuery.isLoading || termsQuery.isLoading;
+  const hasError = offeringsQuery.error || coursesQuery.error || termsQuery.error || usersQuery.error || createOffering.error || updateOffering.error || deleteOffering.error || createCourse.error || createTerm.error || assignStaff.error || updateTerm.error || deleteTerm.error;
 
   return (
     <div className="space-y-8 max-w-screen-xl">
-      {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Course Offerings</h1>
-          <p className="text-sm text-muted-foreground">
-            {offerings.length} offering{offerings.length !== 1 ? "s" : ""} across {termOrder.length} term{termOrder.length !== 1 ? "s" : ""}
-          </p>
+          <p className="text-sm text-muted-foreground">{offerings.length} offering{offerings.length !== 1 ? "s" : ""} across {termOrder.length} term{termOrder.length !== 1 ? "s" : ""}</p>
         </div>
-        <Button onClick={openCreate} className="gap-2 self-start sm:self-auto">
-          <Plus className="h-4 w-4" />
-          Add Offering
-        </Button>
+        <Button onClick={openCreate} className="gap-2 self-start sm:self-auto"><Plus className="h-4 w-4" />Add Offering</Button>
       </div>
 
-      {/* ── Empty state ── */}
-      {offerings.length === 0 && (
+      {hasError ? <p className="text-sm text-destructive">Something went wrong while syncing course offerings. Please try again.</p> : null}
+
+      {loading ? (
+        <div className="py-24 text-center text-sm text-muted-foreground">Loading course offerings…</div>
+      ) : offerings.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-            <Layers className="h-6 w-6 text-muted-foreground" />
-          </div>
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4"><Layers className="h-6 w-6 text-muted-foreground" /></div>
           <p className="text-sm font-medium">No offerings yet</p>
           <p className="text-xs text-muted-foreground mt-1">Click "Add Offering" to create your first one.</p>
         </div>
-      )}
+      ) : null}
 
-      {/* ── Grouped term sections ── */}
-      {termOrder.map((term) => (
-        <div key={term} className="space-y-3">
-          {/* Term header */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+      {termOrder.map((termId) => {
+        const first = grouped[termId][0];
+        const term = terms.find((t) => String(t.id) === termId);
+        const termLabel = term?.code ?? first.termCode;
+        return (
+          <div key={termId} className="space-y-3">
+            <div className="flex items-center gap-3">
               <CalendarCheck className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold">{term}</h2>
+              {term ? (
+                <button type="button" onClick={() => openTermEdit(term)} className="cursor-pointer text-base font-semibold hover:text-primary hover:underline underline-offset-4">{termLabel}</button>
+              ) : <h2 className="text-base font-semibold">{termLabel}</h2>}
+              <Badge variant="secondary" className="text-xs">{grouped[termId].length} offering{grouped[termId].length !== 1 ? "s" : ""}</Badge>
+              <div className="flex-1 h-px bg-border" />
+              {term ? <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openTermEdit(term)} aria-label={`Edit ${termLabel}`}><Pencil className="h-4 w-4" /></Button> : null}
             </div>
-            <Badge variant="secondary" className="text-xs">
-              {grouped[term].length} offering{grouped[term].length !== 1 ? "s" : ""}
-            </Badge>
-            <div className="flex-1 h-px bg-border" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {grouped[termId].map((offering) => (
+                <Card key={offering.id} className="group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono bg-primary/10 text-primary">{offering.courseCode}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"><MoreHorizontal className="h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/course-offerings/detail?id=${encodeURIComponent(String(offering.id))}`)}><ChevronRight className="mr-2 h-3.5 w-3.5" />View Details</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEdit(offering)}><Pencil className="mr-2 h-3.5 w-3.5" />Edit note</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => requestOfferingDelete(offering)}><Trash2 className="mr-2 h-3.5 w-3.5" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <p className="font-semibold text-sm leading-snug mb-2 line-clamp-2">{offering.courseTitle}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{offering.note || "No note added."}</p>
+                    <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">Created {formatDate(offering.createdAt)}</p>
+                    <div className="flex gap-2 mt-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button variant="default" size="sm" className="flex-1 h-7 text-xs gap-1.5" onClick={() => router.push(`/course-offerings/detail?id=${encodeURIComponent(String(offering.id))}`)}><ChevronRight className="h-3 w-3" />Details</Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => openEdit(offering)}><Pencil className="h-3 w-3" /></Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => requestOfferingDelete(offering)}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
+        );
+      })}
 
-          {/* Offering cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {grouped[term].map((offering) => (
-              <Card
-                key={offering.id}
-                className="group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-              >
-                <CardContent className="p-4">
-                  {/* Top row: section badge + menu */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono ${sectionColor(offering.section)}`}
-                    >
-                      Section {offering.section}
-                    </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => router.push(`/course-offerings/${offering.id}`)}>
-                          <ChevronRight className="mr-2 h-3.5 w-3.5" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEdit(offering)}>
-                          <Pencil className="mr-2 h-3.5 w-3.5" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => handleDelete(offering.id)}
-                        >
-                          <Trash2 className="mr-2 h-3.5 w-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Course name */}
-                  <p className="font-semibold text-sm leading-snug mb-3 line-clamp-2">
-                    {offering.courseName}
-                  </p>
-
-                  {/* Stats row */}
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      {offering.students.length} students
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <UserCog className="h-3.5 w-3.5" />
-                      {offering.staff.length} staff
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <CalendarCheck className="h-3.5 w-3.5" />
-                      {offering.sessions.length} sessions
-                    </span>
-                  </div>
-
-                  {/* Actions — appear on hover */}
-                  <div className="flex gap-2 mt-3 pt-3 border-t opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1 h-7 text-xs gap-1.5"
-                      onClick={() => router.push(`/course-offerings/${offering.id}`)}
-                    >
-                      <ChevronRight className="h-3 w-3" />
-                      Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1 px-2"
-                      onClick={() => openEdit(offering)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1 px-2 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
-                      onClick={() => handleDelete(offering.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* ── CRUD Dialog ── */}
-      <CrudDialog
+      <OfferingDialog
         open={dialogOpen}
         onOpenChange={setDialog}
-        title={editing ? "Edit Offering" : "New Course Offering"}
-        schema={offeringSchema}
-        defaultValues={
-          editing
-            ? { courseName: editing.courseName, termName: editing.termName, section: editing.section }
-            : EMPTY
-        }
-        fields={FIELDS}
-        onSubmit={handleSubmit}
+        courses={courses}
+        terms={terms}
+        users={users}
+        editing={editing}
+        creatingCourse={createCourse.isPending}
+        creatingTerm={createTerm.isPending}
+        saving={createOffering.isPending || updateOffering.isPending || assignStaff.isPending}
+        onCourseCreate={(data, onCreated) => createCourse.mutate({ data }, { onSuccess: onCreated })}
+        onTermCreate={(data, onCreated) => createTerm.mutate({ data }, { onSuccess: onCreated })}
+        onSubmit={async (data, initialStaff) => {
+          if ("courseId" in data) {
+            const offering = await createOffering.mutateAsync({ data });
+            for (const staff of initialStaff) {
+              await assignStaff.mutateAsync({
+                data: {
+                  courseOfferingId: offering.id,
+                  userId: staff.userId,
+                  scope: CourseOfferingStaffScope.Offering,
+                  accessLevel: staff.accessLevel,
+                  sectionId: null,
+                  roleTitle: staff.roleTitle,
+                },
+              });
+            }
+          } else {
+            await updateOffering.mutateAsync({ id: data.id, data });
+          }
+        }}
       />
+      <TermEditDialog open={termDialogOpen} onOpenChange={setTermDialogOpen} term={editingTerm} onSave={(data) => updateTerm.mutate({ id: data.id, data })} onDelete={requestTermDelete} />
+      <DeleteConfirmationDialog request={deleteRequest} onOpenChange={(open) => { if (!open) setDeleteRequest(null); }} onConfirm={confirmDeleteRequest} />
     </div>
-  )
+  );
 }

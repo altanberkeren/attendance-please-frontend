@@ -1,16 +1,17 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z, ZodObject, ZodRawShape } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import type { ZodObject, ZodRawShape, z } from "zod";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -18,29 +19,27 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 export type FieldDef = {
-  name: string
-  label: string
-  placeholder?: string
-  type?: string
-}
+  name: string;
+  label: string;
+  placeholder?: string;
+  type?: string;
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRecord = Record<string, any>
+type AnyRecord = Record<string, unknown>;
 
 type CrudDialogProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  schema: ZodObject<ZodRawShape>
-  defaultValues: AnyRecord
-  fields: FieldDef[]
-  onSubmit: (values: AnyRecord) => void
-}
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  schema: ZodObject<ZodRawShape>;
+  defaultValues: AnyRecord;
+  fields: FieldDef[];
+  onSubmit: (values: AnyRecord) => void;
+};
 
 export function CrudDialog({
   open,
@@ -54,15 +53,16 @@ export function CrudDialog({
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema) as never,
     defaultValues,
-  })
+  });
+  const { reset } = form;
 
   useEffect(() => {
-    if (open) form.reset(defaultValues)
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (open) reset(defaultValues);
+  }, [open, reset, defaultValues]);
 
   function handleSubmit(values: z.infer<typeof schema>) {
-    onSubmit(values)
-    onOpenChange(false)
+    onSubmit(values);
+    onOpenChange(false);
   }
 
   return (
@@ -72,7 +72,10 @@ export function CrudDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-4"
+          >
             {fields.map((f) => (
               <FormField
                 key={f.name}
@@ -94,7 +97,11 @@ export function CrudDialog({
               />
             ))}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit">Save</Button>
@@ -103,5 +110,5 @@ export function CrudDialog({
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -4,15 +4,28 @@
  * Api | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { CourseOfferingStaffAccessLevel } from './courseOfferingStaffAccessLevel';
+import type { CourseOfferingStaffScope } from './courseOfferingStaffScope';
 
 export interface CourseOfferingStaffDto {
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   id: number | string;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   courseOfferingId: number | string;
+  /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+  sectionId: number | string | null;
+  /** @nullable */
+  sectionName: string | null;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   userId: number | string;
   userName: string;
+  userEmail: string;
+  userRole: string;
+  scope: CourseOfferingStaffScope;
+  accessLevel: CourseOfferingStaffAccessLevel;
   /** @nullable */
   roleTitle: string | null;
   createdAt: string;

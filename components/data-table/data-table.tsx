@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
 import {
-  ColumnDef,
+  type ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
-} from "@tanstack/react-table"
-import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+} from "@tanstack/react-table";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -15,14 +15,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 
 type DataTableProps<TData, TValue> = {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
-  onAdd?: () => void
-  addLabel?: string
-}
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  onAdd?: () => void;
+  addLabel?: string;
+};
 
 export function DataTable<TData, TValue>({
   columns,
@@ -34,7 +34,7 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-  })
+  });
 
   return (
     <div className="space-y-4">
@@ -55,7 +55,10 @@ export function DataTable<TData, TValue>({
                   <TableHead key={header.id}>
                     {header.isPlaceholder
                       ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -67,14 +70,20 @@ export function DataTable<TData, TValue>({
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-muted-foreground"
+                >
                   No records found.
                 </TableCell>
               </TableRow>
@@ -83,5 +92,5 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
     </div>
-  )
+  );
 }

@@ -1,15 +1,19 @@
-"use client"
+"use client";
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { User, Bell, Shield, Save } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Bell, Save, Shield, User } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -18,28 +22,32 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 
 // ── Schemas ────────────────────────────────────────────────────────────────────
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
-  lastName:  z.string().min(1, "Last name is required"),
-  email:     z.string().email("Must be a valid email address"),
-  title:     z.string().optional(),
-})
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Must be a valid email address"),
+  title: z.string().optional(),
+});
 
-const passwordSchema = z.object({
-  current:  z.string().min(1, "Current password is required"),
-  next:     z.string().min(8, "Must be at least 8 characters"),
-  confirm:  z.string().min(1, "Please confirm your password"),
-}).refine((d) => d.next === d.confirm, {
-  message: "Passwords do not match",
-  path: ["confirm"],
-})
+const passwordSchema = z
+  .object({
+    current: z.string().min(1, "Current password is required"),
+    next: z.string().min(8, "Must be at least 8 characters"),
+    confirm: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((d) => d.next === d.confirm, {
+    message: "Passwords do not match",
+    path: ["confirm"],
+  });
 
-type ProfileValues  = z.infer<typeof profileSchema>
-type PasswordValues = z.infer<typeof passwordSchema>
+type ProfileValues = z.infer<typeof profileSchema>;
+type PasswordValues = z.infer<typeof passwordSchema>;
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -48,25 +56,25 @@ export default function SettingsPage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       firstName: "Dogukan",
-      lastName:  "K.",
-      email:     "dogukan7400@gmail.com",
-      title:     "Administrator",
+      lastName: "K.",
+      email: "dogukan7400@gmail.com",
+      title: "Administrator",
     },
-  })
+  });
 
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { current: "", next: "", confirm: "" },
-  })
+  });
 
   function onProfileSubmit(values: ProfileValues) {
-    console.log("Profile saved:", values)
+    console.log("Profile saved:", values);
     // TODO: call API
   }
 
   function onPasswordSubmit(values: PasswordValues) {
-    console.log("Password changed:", values)
-    passwordForm.reset()
+    console.log("Password changed:", values);
+    passwordForm.reset();
     // TODO: call API
   }
 
@@ -75,7 +83,9 @@ export default function SettingsPage() {
       {/* Page title */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your account and preferences.</p>
+        <p className="text-sm text-muted-foreground">
+          Manage your account and preferences.
+        </p>
       </div>
 
       {/* ── Profile section ── */}
@@ -102,16 +112,23 @@ export default function SettingsPage() {
             </Avatar>
             <div>
               <p className="text-sm font-medium">Profile photo</p>
-              <p className="text-xs text-muted-foreground">Avatar is generated from your initials</p>
+              <p className="text-xs text-muted-foreground">
+                Avatar is generated from your initials
+              </p>
             </div>
-            <Badge variant="outline" className="ml-auto">Admin</Badge>
+            <Badge variant="outline" className="ml-auto">
+              Admin
+            </Badge>
           </div>
 
           <Separator />
 
           {/* Profile form */}
           <Form {...profileForm}>
-            <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+            <form
+              onSubmit={profileForm.handleSubmit(onProfileSubmit)}
+              className="space-y-4"
+            >
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={profileForm.control}
@@ -148,9 +165,15 @@ export default function SettingsPage() {
                   <FormItem>
                     <FormLabel>Email address</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="john@university.edu" {...field} />
+                      <Input
+                        type="email"
+                        placeholder="john@university.edu"
+                        {...field}
+                      />
                     </FormControl>
-                    <FormDescription>Used for login and notifications.</FormDescription>
+                    <FormDescription>
+                      Used for login and notifications.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -161,9 +184,17 @@ export default function SettingsPage() {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Job title <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                    <FormLabel>
+                      Job title{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Course Administrator" {...field} />
+                      <Input
+                        placeholder="e.g. Course Administrator"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -196,17 +227,32 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {[
-            { label: "Session opened",       desc: "When an attendance session starts in your course" },
-            { label: "Low attendance alert",  desc: "When a student drops below 70% attendance" },
-            { label: "Weekly report",         desc: "Summary of attendance stats every Monday" },
+            {
+              label: "Session opened",
+              desc: "When an attendance session starts in your course",
+            },
+            {
+              label: "Low attendance alert",
+              desc: "When a student drops below 70% attendance",
+            },
+            {
+              label: "Weekly report",
+              desc: "Summary of attendance stats every Monday",
+            },
           ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between py-1">
+            <div
+              key={item.label}
+              className="flex items-center justify-between py-1"
+            >
               <div>
                 <p className="text-sm font-medium">{item.label}</p>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
               {/* Simple toggle-style badge (visual only — no state persisted yet) */}
-              <Badge variant="outline" className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+              <Badge
+                variant="outline"
+                className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+              >
                 Enabled
               </Badge>
             </div>
@@ -229,7 +275,10 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <Form {...passwordForm}>
-            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+            <form
+              onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
+              className="space-y-4"
+            >
               <FormField
                 control={passwordForm.control}
                 name="current"
@@ -237,7 +286,11 @@ export default function SettingsPage() {
                   <FormItem>
                     <FormLabel>Current password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -251,7 +304,11 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>New password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -264,7 +321,11 @@ export default function SettingsPage() {
                     <FormItem>
                       <FormLabel>Confirm new password</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
+                        <Input
+                          type="password"
+                          placeholder="••••••••"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -282,5 +343,5 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

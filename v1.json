@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5176/"
+      "url": "http://localhost:5055/"
     }
   ],
   "paths": {
@@ -369,6 +369,55 @@
         }
       }
     },
+    "/api/Auth/dev-role": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevRoleRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevRoleRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Auth/register": {
       "post": {
         "tags": [
@@ -452,6 +501,20 @@
       "get": {
         "tags": [
           "CourseOfferings"
+        ],
+        "parameters": [
+          {
+            "name": "staffUserId",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -717,6 +780,68 @@
       }
     },
     "/api/CourseOfferingStaffs/{id}": {
+      "put": {
+        "tags": [
+          "CourseOfferingStaffs"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingStaffDto"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "CourseOfferingStaffs"
@@ -1070,6 +1195,55 @@
         }
       }
     },
+    "/api/Enrollments/bulk": {
+      "post": {
+        "tags": [
+          "Enrollments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrollStudentsCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrollStudentsCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrollStudentsCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrollStudentsResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrollStudentsResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrollStudentsResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Enrollments/{id}/section": {
       "put": {
         "tags": [
@@ -1196,6 +1370,44 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EnrollmentDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Enrollments/me": {
+      "get": {
+        "tags": [
+          "Enrollments"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyEnrollmentDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyEnrollmentDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyEnrollmentDto"
+                  }
                 }
               }
             }
@@ -2211,6 +2423,9 @@
         "required": [
           "courseOfferingId",
           "userId",
+          "scope",
+          "accessLevel",
+          "sectionId",
           "roleTitle"
         ],
         "type": "object",
@@ -2226,6 +2441,21 @@
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseOfferingStaffScope"
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/CourseOfferingStaffAccessLevel"
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
               "integer",
               "string"
             ],
@@ -2404,6 +2634,111 @@
           }
         }
       },
+      "BulkEnrollStudentItem": {
+        "required": [
+          "studentNumber",
+          "importedName",
+          "sectionId"
+        ],
+        "type": "object",
+        "properties": {
+          "studentNumber": {
+            "type": "string"
+          },
+          "importedName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BulkEnrollStudentResult": {
+        "required": [
+          "studentNumber",
+          "success",
+          "linkedUser",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "studentNumber": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "linkedUser": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "BulkEnrollStudentsCommand": {
+        "required": [
+          "courseOfferingId",
+          "students"
+        ],
+        "type": "object",
+        "properties": {
+          "courseOfferingId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkEnrollStudentItem"
+            }
+          }
+        }
+      },
+      "BulkEnrollStudentsResult": {
+        "required": [
+          "successCount",
+          "errorCount",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "successCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "errorCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkEnrollStudentResult"
+            }
+          }
+        }
+      },
       "CourseDto": {
         "required": [
           "id",
@@ -2491,12 +2826,26 @@
           }
         }
       },
+      "CourseOfferingStaffAccessLevel": {
+        "enum": [
+          "Owner",
+          "Instructor",
+          "Assistant",
+          "Viewer"
+        ]
+      },
       "CourseOfferingStaffDto": {
         "required": [
           "id",
           "courseOfferingId",
+          "sectionId",
+          "sectionName",
           "userId",
           "userName",
+          "userEmail",
+          "userRole",
+          "scope",
+          "accessLevel",
           "roleTitle",
           "createdAt"
         ],
@@ -2518,6 +2867,21 @@
             ],
             "format": "int32"
           },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -2528,6 +2892,18 @@
           },
           "userName": {
             "type": "string"
+          },
+          "userEmail": {
+            "type": "string"
+          },
+          "userRole": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseOfferingStaffScope"
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/CourseOfferingStaffAccessLevel"
           },
           "roleTitle": {
             "type": [
@@ -2540,6 +2916,12 @@
             "format": "date-time"
           }
         }
+      },
+      "CourseOfferingStaffScope": {
+        "enum": [
+          "Offering",
+          "Section"
+        ]
       },
       "CreateCourseCommand": {
         "required": [
@@ -2665,14 +3047,44 @@
           }
         }
       },
+      "DevRoleRequest": {
+        "required": [
+          "userId",
+          "email",
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        }
+      },
       "EnrollmentDto": {
         "required": [
           "id",
           "userId",
+          "studentNumber",
           "userName",
           "courseOfferingId",
           "sectionId",
           "sectionName",
+          "isLinkedUser",
           "createdAt"
         ],
         "type": "object",
@@ -2688,10 +3100,14 @@
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "studentNumber": {
+            "type": "string"
           },
           "userName": {
             "type": "string"
@@ -2715,6 +3131,9 @@
           "sectionName": {
             "type": "string"
           },
+          "isLinkedUser": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -2724,6 +3143,8 @@
       "EnrollStudentCommand": {
         "required": [
           "userId",
+          "studentNumber",
+          "importedName",
           "courseOfferingId",
           "sectionId"
         ],
@@ -2732,10 +3153,23 @@
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "studentNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "importedName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "courseOfferingId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -2900,6 +3334,92 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "MyEnrollmentDto": {
+        "required": [
+          "id",
+          "userId",
+          "userName",
+          "courseOfferingId",
+          "courseId",
+          "courseCode",
+          "courseTitle",
+          "termId",
+          "termCode",
+          "sectionId",
+          "sectionName",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "userId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "courseOfferingId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "courseId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "courseCode": {
+            "type": "string"
+          },
+          "courseTitle": {
+            "type": "string"
+          },
+          "termId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "termCode": {
+            "type": "string"
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -3417,6 +3937,47 @@
           }
         }
       },
+      "UpdateStaffCommand": {
+        "required": [
+          "id",
+          "scope",
+          "accessLevel",
+          "sectionId",
+          "roleTitle"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseOfferingStaffScope"
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/CourseOfferingStaffAccessLevel"
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "roleTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "UpdateTermCommand": {
         "required": [
           "id",
@@ -3452,7 +4013,9 @@
           "id",
           "name",
           "email",
+          "studentNumber",
           "role",
+          "roles",
           "createdAt"
         ],
         "type": "object",
@@ -3471,8 +4034,20 @@
           "email": {
             "type": "string"
           },
+          "studentNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "role": {
             "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "createdAt": {
             "type": "string",
@@ -3510,9 +4085,9 @@
     }
   },
   "security": [
-    {},
-    {},
-    {}
+    { },
+    { },
+    { }
   ],
   "tags": [
     {
