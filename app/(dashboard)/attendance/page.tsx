@@ -1129,7 +1129,7 @@ export default function AttendancePage() {
     setIsClosing(true);
     try {
       await closeSession({ id: backendSessionId });
-      router.push(`/sessions/${encodeURIComponent(String(backendSessionId))}`);
+      router.push(`/sessions/detail?id=${encodeURIComponent(String(backendSessionId))}`);
     } finally {
       setIsClosing(false);
     }

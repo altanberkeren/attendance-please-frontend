@@ -26,14 +26,9 @@ import type { SessionDto } from "@/lib/api/model";
 import { AttendanceMethod, AttendanceStatus } from "@/lib/api/model";
 import { useGetApiModulesId } from "@/lib/api/modules/modules";
 import {
-  useGetApiSessions,
+  useGetApiSessionsId,
   usePostApiSessionsIdClose,
 } from "@/lib/api/sessions/sessions";
-import {
-  MOCK_SECTIONS,
-  MOCK_SESSIONS,
-  makeMockEnrollments,
-} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 function methodIcon(method: string) {
@@ -85,7 +80,6 @@ function textColor(v: number) {
 function SessionDetail({ session }: { session: SessionDto }) {
   const router = useRouter();
   const duration = calcDuration(session.openedAt, session.closedAt);
-  const mockMode = Number(session.id) >= 8000;
   const isOpen = session.status === "Open";
   const [qrToken, setQrToken] = useState(
     () => `att://session/${session.id}?ts=${Date.now()}`,
@@ -95,24 +89,14 @@ function SessionDetail({ session }: { session: SessionDto }) {
 
   const { data: attendances = [], isLoading: loadingAtt } =
     useGetApiAttendancesSessionSessionId(session.id, {
-      query: { enabled: !mockMode, refetchInterval: isOpen ? 3000 : false },
+      query: { refetchInterval: isOpen ? 3000 : false },
     });
-  const { data: moduleData } = useGetApiModulesId(session.moduleId, {
-    query: { enabled: !mockMode },
-  });
-  const { data: apiEnrollments = [], isLoading: loadingEnroll } =
+  const { data: moduleData } = useGetApiModulesId(session.moduleId);
+  const { data: enrollments = [], isLoading: loadingEnroll } =
     useGetApiEnrollments(
       { courseOfferingId: moduleData?.courseOfferingId },
-      { query: { enabled: !!moduleData?.courseOfferingId && !mockMode } },
+      { query: { enabled: !!moduleData?.courseOfferingId } },
     );
-
-  const mid = Number(session.moduleId);
-  const mockOfferingId =
-    mid >= 100 && mid < 200 ? 9001 : mid >= 200 && mid < 300 ? 9002 : 9003;
-  const mockSections = MOCK_SECTIONS[String(mockOfferingId)] ?? [];
-  const enrollments = mockMode
-    ? makeMockEnrollments(mockOfferingId, mockSections, 45)
-    : apiEnrollments;
   const sectionEnrollments = session.sectionId
     ? enrollments.filter(
         (enrollment) =>
@@ -128,35 +112,19 @@ function SessionDetail({ session }: { session: SessionDto }) {
   const presentIds = new Set(
     presentAtts.map((attendance) => String(attendance.userId)),
   );
-  const presentList = mockMode
-    ? sectionEnrollments
-        .slice(0, Math.round(sectionEnrollments.length * 0.83))
-        .map((enrollment) => ({
-          id: enrollment.userId,
-          name: enrollment.userName,
-          studentId: String(enrollment.userId),
-          via: "auto" as const,
-        }))
-    : presentAtts.map((attendance) => ({
-        id: attendance.userId,
-        name: attendance.userName,
-        studentId: String(attendance.userId),
-        via:
-          attendance.method === AttendanceMethod.Manual
-            ? ("manual" as const)
-            : ("auto" as const),
-        markedAt: attendance.recordedAt ?? undefined,
-      }));
+  const presentList = presentAtts.map((attendance) => ({
+    id: attendance.userId,
+    name: attendance.userName,
+    studentId: String(attendance.userId),
+    via:
+      attendance.method === AttendanceMethod.Manual
+        ? ("manual" as const)
+        : ("auto" as const),
+    markedAt: attendance.recordedAt ?? undefined,
+  }));
 
-  const presentMockIds = new Set(
-    presentList.map((student) => String(student.id)),
-  );
   const absentList = sectionEnrollments
-    .filter((enrollment) =>
-      mockMode
-        ? !presentMockIds.has(String(enrollment.userId))
-        : !presentIds.has(String(enrollment.userId)),
-    )
+    .filter((enrollment) => !presentIds.has(String(enrollment.userId)))
     .map((enrollment) => ({
       id: enrollment.userId,
       name: enrollment.userName,
@@ -181,7 +149,6 @@ function SessionDetail({ session }: { session: SessionDto }) {
   }
 
   async function handleEndSession() {
-    if (mockMode) return;
     await closeSession({ id: session.id });
     router.refresh();
   }
@@ -363,7 +330,7 @@ function SessionDetail({ session }: { session: SessionDto }) {
                 variant="destructive"
                 size="sm"
                 onClick={handleEndSession}
-                disabled={isClosing || mockMode}
+                disabled={isClosing}
                 className="gap-2"
               >
                 {isClosing ? (
@@ -401,7 +368,7 @@ function SessionDetail({ session }: { session: SessionDto }) {
 
 export function SessionDetailClient({ id }: { id: string }) {
   const router = useRouter();
-  const { data: apiSessions = [], isLoading } = useGetApiSessions();
+  const { data: session, isLoading } = useGetApiSessionsId(id);
 
   if (isLoading) {
     return (
@@ -410,9 +377,6 @@ export function SessionDetailClient({ id }: { id: string }) {
       </div>
     );
   }
-
-  const sessions = apiSessions.length > 0 ? apiSessions : MOCK_SESSIONS;
-  const session = sessions.find((item) => String(item.id) === id);
 
   if (!session) {
     return (
