@@ -31,13 +31,6 @@ import type {
 import { AttendanceMethod, AttendanceStatus } from "@/lib/api/model";
 import { useGetApiSections } from "@/lib/api/sections/sections";
 import { useGetApiSessions } from "@/lib/api/sessions/sessions";
-import {
-  MOCK_OFFERINGS,
-  MOCK_SECTIONS,
-  MOCK_SESSIONS,
-  makeMockEnrollments,
-  makeMockMatrix,
-} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -125,28 +118,12 @@ function computeModulePcts(matrix: AttendanceMatrixResult) {
 
 function LastSessionRoster({
   courseOfferingId,
-  isMockMode,
 }: {
   courseOfferingId: number | string;
-  isMockMode?: boolean;
 }) {
-  const { data: apiSessions = [], isLoading: loadingSessions } =
-    useGetApiSessions(
-      { courseOfferingId },
-      { query: { enabled: !isMockMode } },
-    );
-
-  const mockSessions = MOCK_SESSIONS.filter((s) => {
-    const ofId = Number(courseOfferingId);
-    const mid = Number(s.moduleId);
-    return ofId === 9001
-      ? mid >= 100 && mid < 200
-      : ofId === 9002
-        ? mid >= 200 && mid < 300
-        : mid >= 300 && mid < 400;
+  const { data: sessions = [], isLoading: loadingSessions } = useGetApiSessions({
+    courseOfferingId,
   });
-
-  const sessions = isMockMode ? mockSessions : apiSessions;
 
   const sorted = [...sessions].sort(
     (a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime(),
@@ -155,22 +132,12 @@ function LastSessionRoster({
 
   const { data: attendances = [], isLoading: loadingAtt } =
     useGetApiAttendancesSessionSessionId(last?.id ?? 0, {
-      query: { enabled: !!last?.id && !isMockMode },
+      query: { enabled: !!last?.id },
     });
-  const { data: apiEnrollments = [], isLoading: loadingEnroll } =
-    useGetApiEnrollments(
-      { courseOfferingId },
-      { query: { enabled: !isMockMode } },
-    );
+  const { data: enrollments = [], isLoading: loadingEnroll } =
+    useGetApiEnrollments({ courseOfferingId });
 
-  const mockSecs = MOCK_SECTIONS[String(courseOfferingId)] ?? [];
-  const enrollments = isMockMode
-    ? makeMockEnrollments(Number(courseOfferingId), mockSecs, 45)
-    : apiEnrollments;
-
-  const isLoading = isMockMode
-    ? loadingSessions
-    : loadingSessions || loadingAtt || loadingEnroll;
+  const isLoading = loadingSessions || loadingAtt || loadingEnroll;
 
   if (isLoading) {
     return (
@@ -192,43 +159,26 @@ function LastSessionRoster({
     ? enrollments.filter((e) => String(e.sectionId) === String(last.sectionId))
     : enrollments;
 
-  const presentAtts = isMockMode
-    ? []
-    : attendances.filter(
-        (a) =>
-          a.status === AttendanceStatus.Present ||
-          a.status === AttendanceStatus.Late,
-      );
+  const presentAtts = attendances.filter(
+    (a) =>
+      a.status === AttendanceStatus.Present || a.status === AttendanceStatus.Late,
+  );
 
   const presentIds = new Set(presentAtts.map((a) => String(a.userId)));
 
-  const presentList = isMockMode
-    ? filteredEnrollments
-        .slice(0, Math.round(filteredEnrollments.length * 0.83))
-        .map((e) => ({
-          id: e.userId,
-          name: e.userName,
-          studentId: String(e.userId),
-          via: "auto" as const,
-        }))
-    : presentAtts.map((a) => ({
-        id: a.userId,
-        name: a.userName,
-        studentId: String(a.userId),
-        via:
-          a.method === AttendanceMethod.Manual
-            ? ("manual" as const)
-            : ("auto" as const),
-        markedAt: a.recordedAt ?? undefined,
-      }));
+  const presentList = presentAtts.map((a) => ({
+    id: a.userId,
+    name: a.userName,
+    studentId: String(a.userId),
+    via:
+      a.method === AttendanceMethod.Manual
+        ? ("manual" as const)
+        : ("auto" as const),
+    markedAt: a.recordedAt ?? undefined,
+  }));
 
-  const presentMockIds = new Set(presentList.map((p) => String(p.id)));
   const absentList = filteredEnrollments
-    .filter((e) =>
-      isMockMode
-        ? !presentMockIds.has(String(e.userId))
-        : !presentIds.has(String(e.userId)),
-    )
+    .filter((e) => !presentIds.has(String(e.userId)))
     .map((e) => ({
       id: e.userId,
       name: e.userName,
@@ -251,11 +201,9 @@ function LastSessionRoster({
 function CourseOfferingCard({
   offering,
   colorIndex,
-  isMockMode,
 }: {
   offering: CourseOfferingDto;
   colorIndex: number;
-  isMockMode?: boolean;
 }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -264,21 +212,14 @@ function CourseOfferingCard({
   const color = COLORS[colorIndex % COLORS.length];
   const colors = COLOR_MAP[color];
 
-  const { data: apiMatrix } = useGetApiAttendancesMatrix(
+  const { data: matrix, isLoading: loadingMatrix } = useGetApiAttendancesMatrix(
     { courseOfferingId: offering.id },
-    { query: { enabled: expanded && !isMockMode } },
+    { query: { enabled: expanded } },
   );
-  const { data: apiSections = [] } = useGetApiSections(
+  const { data: sections = [], isLoading: loadingSections } = useGetApiSections(
     { courseOfferingId: offering.id },
-    { query: { enabled: expanded && !isMockMode } },
+    { query: { enabled: expanded } },
   );
-
-  const mockSections = MOCK_SECTIONS[String(offering.id)] ?? [];
-  const mockMatrix =
-    expanded && isMockMode ? makeMockMatrix(Number(offering.id)) : undefined;
-
-  const matrix = isMockMode ? mockMatrix : apiMatrix;
-  const sections = isMockMode ? mockSections : apiSections;
 
   const enrolledCount = matrix?.students.length ?? null;
   const overallPct = matrix ? computeOverallPct(matrix) : null;
@@ -375,13 +316,19 @@ function CourseOfferingCard({
             {/* Overview tab */}
             {activeTab === "overview" && (
               <>
-                {!matrix && (
+                {(loadingMatrix || loadingSections) && (
                   <div className="flex items-center justify-center py-6">
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   </div>
                 )}
 
-                {matrix && (
+                {!loadingMatrix && !loadingSections && !matrix && (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No attendance data yet.
+                  </p>
+                )}
+
+                {!loadingMatrix && !loadingSections && matrix && (
                   <>
                     {overallPct !== null && (
                       <div className="space-y-1.5">
@@ -512,10 +459,7 @@ function CourseOfferingCard({
 
             {/* Roster tab */}
             {activeTab === "roster" && (
-              <LastSessionRoster
-                courseOfferingId={offering.id}
-                isMockMode={isMockMode}
-              />
+              <LastSessionRoster courseOfferingId={offering.id} />
             )}
 
             {/* Actions */}
@@ -571,8 +515,7 @@ export default function MyCoursesPage() {
     });
 
   const isLoading = loadingOfferings;
-  const isMockMode = !!userId && !isLoading && realOfferings.length === 0;
-  const myOfferings = isMockMode ? MOCK_OFFERINGS : realOfferings;
+  const myOfferings = realOfferings;
 
   return (
     <div className="max-w-screen-md mx-auto space-y-6">
@@ -655,7 +598,6 @@ export default function MyCoursesPage() {
               key={String(offering.id)}
               offering={offering}
               colorIndex={i}
-              isMockMode={isMockMode}
             />
           ))}
         </div>
