@@ -1,7 +1,7 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CalendarCheck,
   CheckCircle2,
   Clock,
@@ -50,20 +50,35 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/hooks/use-auth";
-import { useGetApiAttendancesMatrix } from "@/lib/api/attendances/attendances";
-import { useGetApiCourseOfferingStaffs } from "@/lib/api/course-offering-staffs/course-offering-staffs";
-import { useGetApiCourseOfferings } from "@/lib/api/course-offerings/course-offerings";
 import {
+  getGetApiAttendancesMatrixQueryKey,
+  useGetApiAttendancesMatrix,
+} from "@/lib/api/attendances/attendances";
+import {
+  getGetApiCourseOfferingStaffsQueryKey,
+  useGetApiCourseOfferingStaffs,
+} from "@/lib/api/course-offering-staffs/course-offering-staffs";
+import { useGetApiCourseOfferingsId } from "@/lib/api/course-offerings/course-offerings";
+import {
+  getGetApiEnrollmentsQueryKey,
   useDeleteApiEnrollmentsId,
   useGetApiEnrollments,
   usePostApiEnrollments,
   usePutApiEnrollmentsIdSection,
 } from "@/lib/api/enrollments/enrollments";
-import type { EnrollmentDto, SessionDto } from "@/lib/api/model";
+import type { EnrollmentDto, SectionDto, SessionDto } from "@/lib/api/model";
 import { AttendanceMethod, AttendanceStatus } from "@/lib/api/model";
-import { useGetApiSections } from "@/lib/api/sections/sections";
-import { useGetApiSessions } from "@/lib/api/sessions/sessions";
+import {
+  getGetApiSectionsQueryKey,
+  useDeleteApiSectionsId,
+  useGetApiSections,
+  usePostApiSections,
+  usePutApiSectionsId,
+} from "@/lib/api/sections/sections";
+import {
+  getGetApiSessionsQueryKey,
+  useGetApiSessions,
+} from "@/lib/api/sessions/sessions";
 import {
   type CourseOffering,
   MOCK_COURSE_OFFERINGS,
@@ -77,12 +92,6 @@ import {
   makeMockMatrix,
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-
-const statusVariant: Record<string, "default" | "secondary" | "destructive"> = {
-  Completed: "default",
-  Scheduled: "secondary",
-  Cancelled: "destructive",
-};
 
 const STATUS_STYLE: Record<string, string> = {
   [AttendanceStatus.Present]: "bg-primary/10 text-primary border-primary/20",
@@ -347,6 +356,192 @@ function EditEnrollmentDialog({
   );
 }
 
+function SectionManager({
+  sections,
+  enrollments,
+  sessions,
+  activeSectionId,
+  loading,
+  pending,
+  onSelect,
+  onCreate,
+  onRename,
+  onDelete,
+}: {
+  sections: SectionDto[];
+  enrollments: EnrollmentDto[];
+  sessions: SessionDto[];
+  activeSectionId: string;
+  loading: boolean;
+  pending: boolean;
+  onSelect: (id: string) => void;
+  onCreate: (name: string) => void;
+  onRename: (section: SectionDto, name: string) => void;
+  onDelete: (section: SectionDto) => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  function usage(section: SectionDto) {
+    const id = String(section.id);
+    return {
+      students: enrollments.filter((student) => String(student.sectionId) === id)
+        .length,
+      sessions: sessions.filter((session) => String(session.sectionId) === id)
+        .length,
+    };
+  }
+
+  function beginEdit(section: SectionDto) {
+    setEditingId(String(section.id));
+    setEditingName(section.name);
+  }
+
+  function finishEdit(section: SectionDto) {
+    const name = editingName.trim();
+    if (!name || name === section.name) {
+      setEditingId(null);
+      return;
+    }
+    onRename(section, name);
+    setEditingId(null);
+  }
+
+  function handleCreate() {
+    const name = newName.trim();
+    if (!name) return;
+    onCreate(name);
+    setNewName("");
+    setCreateOpen(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Sections</CardTitle>
+          <Button size="sm" onClick={() => setCreateOpen(true)} disabled={pending}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Section
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : sections.length === 0 ? (
+          <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+            No sections yet. Add a section before importing or manually enrolling
+            students.
+          </p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {sections.map((section) => {
+              const counts = usage(section);
+              const isEditing = editingId === String(section.id);
+              const hasDependents = counts.students > 0 || counts.sessions > 0;
+              return (
+                <div key={String(section.id)} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {isEditing ? (
+                        <Input
+                          value={editingName}
+                          onChange={(event) => setEditingName(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") finishEdit(section);
+                            if (event.key === "Escape") setEditingId(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onSelect(String(section.id))}
+                          className={cn(
+                            "font-medium hover:text-primary hover:underline",
+                            activeSectionId === String(section.id) &&
+                              "text-primary",
+                          )}
+                        >
+                          {section.name}
+                        </button>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {counts.students} student{counts.students !== 1 ? "s" : ""} · {counts.sessions} session{counts.sessions !== 1 ? "s" : ""}
+                      </p>
+                      {hasDependents ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Move students and avoid linked sessions before deleting.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="flex gap-1">
+                      {isEditing ? (
+                        <Button size="sm" onClick={() => finishEdit(section)} disabled={pending || !editingName.trim()}>
+                          Save
+                        </Button>
+                      ) : (
+                        <Button size="icon-xs" variant="ghost" onClick={() => beginEdit(section)} aria-label={`Rename ${section.name}`}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        disabled={pending || hasDependents}
+                        onClick={() => onDelete(section)}
+                        aria-label={`Delete ${section.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>New Section</DialogTitle>
+            <DialogDescription>
+              Create a new section for this course offering.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Section Name</Label>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. A, B, Lab 1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreate();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={!newName.trim() || pending}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 function StaffOfferingDetail({
   offeringId,
   legacyOffering,
@@ -355,9 +550,10 @@ function StaffOfferingDetail({
   legacyOffering?: CourseOffering | null;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const defaultTab = ["matrix", "staff", "students", "sessions"].includes(
+  const defaultTab = ["matrix", "sections", "staff", "students", "sessions"].includes(
     requestedTab ?? "",
   )
     ? (requestedTab ?? "matrix")
@@ -381,8 +577,8 @@ function StaffOfferingDetail({
   const numericId = Number(offeringId);
   const mockMode = Number.isFinite(numericId) && numericId >= 9000;
 
-  const { data: apiOfferings = [], isLoading: loadingOfferings } =
-    useGetApiCourseOfferings(undefined, {
+  const { data: apiOffering, isLoading: loadingOfferings } =
+    useGetApiCourseOfferingsId(offeringId, {
       query: { enabled: !mockMode },
     });
   const { data: apiMatrix, isLoading: loadingMatrix } =
@@ -414,11 +610,11 @@ function StaffOfferingDetail({
   const { mutateAsync: deleteEnrollment } = useDeleteApiEnrollmentsId();
   const { mutateAsync: updateEnrollmentSection } =
     usePutApiEnrollmentsIdSection();
+  const createSection = usePostApiSections();
+  const updateSection = usePutApiSectionsId();
+  const deleteSection = useDeleteApiSectionsId();
 
   const mockOffering = MOCK_OFFERINGS.find(
-    (offering) => String(offering.id) === offeringId,
-  );
-  const apiOffering = apiOfferings.find(
     (offering) => String(offering.id) === offeringId,
   );
   const header = mockMode ? mockOffering : apiOffering;
@@ -478,11 +674,38 @@ function StaffOfferingDetail({
       )
     : sessions;
 
+  const enrollmentParams = { courseOfferingId: offeringId };
+  const sectionsParams = { courseOfferingId: offeringId };
+  const sessionsParams = { courseOfferingId: offeringId };
+  const staffParams = { courseOfferingId: offeringId };
+  const matrixParams = { courseOfferingId: offeringId };
+
+  function invalidateDetailQueries() {
+    queryClient.invalidateQueries({
+      queryKey: getGetApiEnrollmentsQueryKey(enrollmentParams),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getGetApiSectionsQueryKey(sectionsParams),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getGetApiSessionsQueryKey(sessionsParams),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getGetApiCourseOfferingStaffsQueryKey(staffParams),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getGetApiAttendancesMatrixQueryKey(matrixParams),
+    });
+  }
+
   const matrixLoading = !mockMode && loadingMatrix;
   const staffLoading = !mockMode && loadingStaff;
   const enrollmentLoading =
     !mockMode && (loadingEnrollments || loadingSections);
   const sessionsLoading = !mockMode && loadingSessions;
+  const sectionsLoading = !mockMode && loadingSections;
+  const sectionMutationPending =
+    createSection.isPending || updateSection.isPending || deleteSection.isPending;
   const pageLoading = !mockMode && loadingOfferings && !apiOffering;
 
   const totalPresent =
@@ -517,6 +740,8 @@ function StaffOfferingDetail({
           sectionId: student.sectionId,
         },
       });
+      invalidateDetailQueries();
+      return;
     }
 
     setLocalEnrollments((prev) => [
@@ -548,6 +773,8 @@ function StaffOfferingDetail({
 
     if (!mockMode) {
       await deleteEnrollment({ id: enrollment.id });
+      invalidateDetailQueries();
+      return;
     }
 
     setDeletedEnrollmentIds((prev) => new Set(prev).add(String(enrollment.id)));
@@ -556,6 +783,30 @@ function StaffOfferingDetail({
       delete next[String(enrollment.id)];
       return next;
     });
+  }
+
+  async function handleCreateSection(name: string) {
+    if (mockMode) return;
+    await createSection.mutateAsync({
+      data: { courseOfferingId: offeringId, name },
+    });
+    invalidateDetailQueries();
+  }
+
+  async function handleRenameSection(section: SectionDto, name: string) {
+    if (mockMode) return;
+    await updateSection.mutateAsync({
+      id: section.id,
+      data: { id: section.id, name },
+    });
+    invalidateDetailQueries();
+  }
+
+  async function handleDeleteSection(section: SectionDto) {
+    if (mockMode) return;
+    await deleteSection.mutateAsync({ id: section.id });
+    if (activeSectionId === String(section.id)) setActiveSectionId("all");
+    invalidateDetailQueries();
   }
 
   async function handleEditEnrollment(student: {
@@ -587,12 +838,13 @@ function StaffOfferingDetail({
           id: editingEnrollment.id,
           data: { id: editingEnrollment.id, sectionId: student.sectionId },
         });
+        invalidateDetailQueries();
+      } else {
+        setEditedEnrollments((prev) => ({
+          ...prev,
+          [String(editingEnrollment.id)]: patch,
+        }));
       }
-
-      setEditedEnrollments((prev) => ({
-        ...prev,
-        [String(editingEnrollment.id)]: patch,
-      }));
     }
 
     setEditingEnrollment(null);
@@ -721,6 +973,7 @@ function StaffOfferingDetail({
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
           <TabsTrigger value="matrix">Attendance Matrix</TabsTrigger>
+          <TabsTrigger value="sections">Sections</TabsTrigger>
           <TabsTrigger value="staff">Assigned Staff</TabsTrigger>
           <TabsTrigger value="students">Enrollment Students</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
@@ -793,6 +1046,21 @@ function StaffOfferingDetail({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="sections">
+          <SectionManager
+            sections={sections}
+            enrollments={enrollments}
+            sessions={sessions}
+            activeSectionId={activeSectionId}
+            loading={sectionsLoading}
+            pending={sectionMutationPending}
+            onSelect={setActiveSectionId}
+            onCreate={handleCreateSection}
+            onRename={handleRenameSection}
+            onDelete={handleDeleteSection}
+          />
         </TabsContent>
 
         <TabsContent value="staff">
@@ -1008,6 +1276,7 @@ function StaffOfferingDetail({
         open={bulkEnrollOpen}
         onOpenChange={setBulkEnrollOpen}
         courseOfferingId={offeringId}
+        onSuccess={invalidateDetailQueries}
       />
       <ManualEnrollmentDialog
         open={manualOpen}
@@ -1029,235 +1298,16 @@ function StaffOfferingDetail({
   );
 }
 
-function AdminOfferingDetail({
-  offering,
-}: {
-  offering?: CourseOffering | null;
-}) {
-  const router = useRouter();
-  const [bulkEnrollOpen, setBulkEnrollOpen] = useState(false);
-
-  if (!offering) {
-    return (
-      <div className="space-y-4">
-        <button type="button"
-          onClick={() => router.back()}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
-        <p className="text-muted-foreground">Course offering not found.</p>
-      </div>
-    );
-  }
+export function OfferingDetail({ offeringId }: { offeringId: string }) {
+  const legacyOffering = useMemo(
+    () => getLegacyOfferingForStaffId(offeringId),
+    [offeringId],
+  );
 
   return (
-    <div className="space-y-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink href="/course-offerings">
-              Course Offerings
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>
-              {offering.courseName} - {offering.section}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{offering.courseName}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
-          <div>
-            <p className="text-muted-foreground">Term</p>
-            <p className="font-medium">{offering.termName}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Section</p>
-            <p className="font-medium">{offering.section}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Enrolled</p>
-            <p className="font-medium">{offering.students.length} students</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="students">
-        <div className="flex items-center justify-between gap-4">
-          <TabsList>
-            <TabsTrigger value="students">
-              <Users className="mr-2 h-4 w-4" />
-              Enrolled Students ({offering.students.length})
-            </TabsTrigger>
-            <TabsTrigger value="staff">
-              <UserCog className="mr-2 h-4 w-4" />
-              Staff ({offering.staff.length})
-            </TabsTrigger>
-            <TabsTrigger value="sessions">
-              <CalendarCheck className="mr-2 h-4 w-4" />
-              Sessions ({offering.sessions.length})
-            </TabsTrigger>
-          </TabsList>
-          <Button size="sm" onClick={() => setBulkEnrollOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Import from Excel
-          </Button>
-        </div>
-
-        <TabsContent value="students" className="mt-4">
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {offering.students.length ? (
-                  offering.students.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">
-                        {student.name}
-                      </TableCell>
-                      <TableCell>{student.email}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={2}
-                      className="h-20 text-center text-muted-foreground"
-                    >
-                      No enrolled students.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="staff" className="mt-4">
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {offering.staff.length ? (
-                  offering.staff.map((staff) => (
-                    <TableRow key={staff.id}>
-                      <TableCell className="font-medium">
-                        {staff.name}
-                      </TableCell>
-                      <TableCell>{staff.role}</TableCell>
-                      <TableCell>{staff.email}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={3}
-                      className="h-20 text-center text-muted-foreground"
-                    >
-                      No staff assigned.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="sessions" className="mt-4">
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Topic</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {offering.sessions.length ? (
-                  offering.sessions.map((session) => (
-                    <TableRow key={session.id}>
-                      <TableCell>{session.date}</TableCell>
-                      <TableCell className="font-medium">
-                        {session.topic}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={statusVariant[session.status] ?? "secondary"}
-                        >
-                          {session.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={3}
-                      className="h-20 text-center text-muted-foreground"
-                    >
-                      No sessions yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <BulkEnrollModal
-        open={bulkEnrollOpen}
-        onOpenChange={setBulkEnrollOpen}
-        courseOfferingId={offering.id}
-      />
-    </div>
+    <StaffOfferingDetail
+      offeringId={offeringId}
+      legacyOffering={legacyOffering}
+    />
   );
-}
-
-export function OfferingDetail({
-  offering,
-  offeringId,
-}: {
-  offering?: CourseOffering | null;
-  offeringId: string;
-}) {
-  const searchParams = useSearchParams();
-  const { user } = useAuth();
-  const legacyOffering = useMemo(
-    () => offering ?? getLegacyOfferingForStaffId(offeringId),
-    [offering, offeringId],
-  );
-  const isStaff = user?.roles.includes("Staff") ?? false;
-  const cameFromMyCourses = searchParams.get("from") === "my-courses";
-
-  if (isStaff || cameFromMyCourses) {
-    return (
-      <StaffOfferingDetail
-        offeringId={offeringId}
-        legacyOffering={legacyOffering}
-      />
-    );
-  }
-
-  return <AdminOfferingDetail offering={offering} />;
 }

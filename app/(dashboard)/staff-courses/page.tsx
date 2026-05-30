@@ -85,7 +85,8 @@ function courseOfferingHref(
   for (const [key, value] of Object.entries(params ?? {})) {
     searchParams.set(key, String(value));
   }
-  return `/course-offerings/${encodeURIComponent(String(offeringId))}?${searchParams.toString()}`;
+  searchParams.set("id", String(offeringId));
+  return `/course-offerings/detail?${searchParams.toString()}`;
 }
 
 function computeOverallPct(matrix: AttendanceMatrixResult): number {

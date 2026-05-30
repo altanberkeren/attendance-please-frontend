@@ -7,10 +7,12 @@ import {
   Upload,
   XCircle,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CreatableCombobox } from "@/components/ui/creatable-combobox";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePostApiEnrollments } from "@/lib/api/enrollments/enrollments";
+import type { SectionDto } from "@/lib/api/model";
+import {
+  getGetApiSectionsQueryKey,
+  useGetApiSections,
+  usePostApiSections,
+} from "@/lib/api/sections/sections";
 import { cn } from "@/lib/utils";
 
 type RowStatus = "pending" | "success" | "error";
@@ -56,6 +64,80 @@ interface BulkEnrollModalProps {
   onOpenChange: (open: boolean) => void;
   courseOfferingId: string | number;
   onSuccess?: () => void;
+}
+
+function CreateSectionDialog({
+  open,
+  onOpenChange,
+  courseOfferingId,
+  initialName,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  courseOfferingId: string | number;
+  initialName?: string;
+  onCreated: (section: SectionDto) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const createSection = usePostApiSections();
+
+  useEffect(() => {
+    if (open && initialName) setName(initialName);
+  }, [open, initialName]);
+
+  function handleSave() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    createSection.mutate(
+      { data: { courseOfferingId, name: trimmed } },
+      {
+        onSuccess: (section) => {
+          setName("");
+          queryClient.invalidateQueries({ queryKey: getGetApiSectionsQueryKey() });
+          onCreated(section);
+          onOpenChange(false);
+        },
+      },
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>New Section</DialogTitle>
+          <DialogDescription>
+            Create a new section for this course offering.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label>Section Name</Label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. A, B, Lab 1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+            }}
+            autoFocus
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!name.trim() || createSection.isPending}
+          >
+            {createSection.isPending ? "Creating…" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function colLetterToIndex(col: string): number {
@@ -101,9 +183,9 @@ function parseWithConfig(
 }
 
 const DEFAULT_CONFIG: ColConfig = {
-  startRow: "13",
-  noCol: "A",
-  nameCol: "B",
+  startRow: "14",
+  noCol: "B",
+  nameCol: "D",
   surnameCol: "E",
   sectionId: "",
 };
@@ -120,9 +202,27 @@ export function BulkEnrollModal({
   const [dragOver, setDragOver] = useState(false);
   const [cfg, setCfg] = useState<ColConfig>(DEFAULT_CONFIG);
   const [students, setStudents] = useState<ParsedStudent[]>([]);
+  const [createSectionOpen, setCreateSectionOpen] = useState(false);
+  const [pendingSectionName, setPendingSectionName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { mutateAsync: enroll } = usePostApiEnrollments();
+  const { data: sections = [] } = useGetApiSections(
+    { courseOfferingId },
+    { query: { enabled: open } },
+  );
+
+  const sectionOptions = sections.map((s) => ({
+    value: String(s.id),
+    label: s.name,
+  }));
+
+  // Auto-select when exactly 1 section exists and nothing is selected yet
+  useEffect(() => {
+    if (sections.length === 1 && !cfg.sectionId) {
+      setCfg((c) => ({ ...c, sectionId: String(sections[0].id) }));
+    }
+  }, [sections, cfg.sectionId]);
 
   const parseFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -200,6 +300,8 @@ export function BulkEnrollModal({
     setStudents([]);
     setFileName("");
     setCfg(DEFAULT_CONFIG);
+    setCreateSectionOpen(false);
+    setPendingSectionName("");
     onOpenChange(false);
   };
 
@@ -337,17 +439,24 @@ export function BulkEnrollModal({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="sectionId" className="text-xs">
-                  Section ID
+                  Section
                 </Label>
-                <Input
-                  id="sectionId"
-                  value={cfg.sectionId}
-                  onChange={(e) =>
-                    setCfg((c) => ({ ...c, sectionId: e.target.value }))
-                  }
-                  placeholder="e.g. 3"
-                  className="w-28"
-                />
+                <div className="w-44">
+                  <CreatableCombobox
+                    options={sectionOptions}
+                    value={cfg.sectionId}
+                    onChange={(v) =>
+                      setCfg((c) => ({ ...c, sectionId: v }))
+                    }
+                    onCreate={(search) => {
+                      setPendingSectionName(search);
+                      setCreateSectionOpen(true);
+                    }}
+                    placeholder="Select section…"
+                    searchPlaceholder="Search sections…"
+                    createLabel="Create section"
+                  />
+                </div>
               </div>
             </div>
 
@@ -507,6 +616,16 @@ export function BulkEnrollModal({
           {isDone && <Button onClick={resetAndClose}>Close</Button>}
         </DialogFooter>
       </DialogContent>
+      <CreateSectionDialog
+        open={createSectionOpen}
+        onOpenChange={setCreateSectionOpen}
+        courseOfferingId={courseOfferingId}
+        initialName={pendingSectionName}
+        onCreated={(section) => {
+          setCfg((c) => ({ ...c, sectionId: String(section.id) }));
+          setPendingSectionName("");
+        }}
+      />
     </Dialog>
   );
 }

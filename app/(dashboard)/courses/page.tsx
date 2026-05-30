@@ -1,39 +1,48 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { CrudDialog, type FieldDef } from "@/components/crud-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { type Course, MOCK_COURSES } from "@/lib/mock/courses";
-
-// ── Schema ────────────────────────────────────────────────────────────────────
+import {
+  getGetApiCoursesQueryKey,
+  useDeleteApiCoursesId,
+  useGetApiCourses,
+  usePostApiCourses,
+  usePutApiCoursesId,
+} from "@/lib/api/courses/courses";
+import type {
+  CourseDto,
+  CreateCourseCommand,
+  UpdateCourseCommand,
+} from "@/lib/api/model";
 
 const courseSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  title: z.string().min(1, "Title is required"),
   code: z.string().min(1, "Code is required"),
-  description: z.string().min(1, "Description is required"),
+  description: z.string().optional(),
 });
 type CourseFormValues = z.infer<typeof courseSchema>;
 
 const FIELDS: FieldDef[] = [
   {
-    name: "name",
-    label: "Course name",
+    name: "title",
+    label: "Course title",
     placeholder: "Introduction to Computer Science",
   },
   { name: "code", label: "Course code", placeholder: "CS101" },
   {
     name: "description",
     label: "Description",
-    placeholder: "What this course covers…",
+    placeholder: "Optional internal description…",
   },
 ];
-const EMPTY: CourseFormValues = { name: "", code: "", description: "" };
+const EMPTY: CourseFormValues = { title: "", code: "", description: "" };
 
-// Code → accent color for visual variety
 const CODE_COLORS: Record<string, string> = {
   CS101: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   CS201: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
@@ -42,49 +51,78 @@ const CODE_COLORS: Record<string, string> = {
   CS402: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
 };
 function codeColor(code: string) {
-  return CODE_COLORS[code] ?? "bg-primary/10 text-primary";
+  return CODE_COLORS[code.toUpperCase()] ?? "bg-primary/10 text-primary";
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialog] = useState(false);
-  const [editing, setEditing] = useState<Course | null>(null);
+  const [editing, setEditing] = useState<CourseDto | null>(null);
   const [search, setSearch] = useState("");
 
-  const filtered = courses.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase()),
+  const coursesQuery = useGetApiCourses();
+  const courses = coursesQuery.data ?? [];
+
+  const invalidateCourses = () =>
+    queryClient.invalidateQueries({ queryKey: getGetApiCoursesQueryKey() });
+
+  const createCourse = usePostApiCourses({
+    mutation: { onSuccess: invalidateCourses },
+  });
+  const updateCourse = usePutApiCoursesId({
+    mutation: { onSuccess: invalidateCourses },
+  });
+  const deleteCourse = useDeleteApiCoursesId({
+    mutation: { onSuccess: invalidateCourses },
+  });
+
+  const filtered = useMemo(
+    () =>
+      courses.filter(
+        (c) =>
+          c.title.toLowerCase().includes(search.toLowerCase()) ||
+          c.code.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [courses, search],
   );
 
   function openCreate() {
     setEditing(null);
     setDialog(true);
   }
-  function openEdit(c: Course) {
+  function openEdit(c: CourseDto) {
     setEditing(c);
     setDialog(true);
   }
-  function handleDelete(id: string) {
-    setCourses((p) => p.filter((c) => c.id !== id));
+  function handleDelete(id: CourseDto["id"]) {
+    deleteCourse.mutate({ id });
   }
 
   function handleSubmit(raw: unknown) {
     const v = raw as CourseFormValues;
     if (editing) {
-      setCourses((p) =>
-        p.map((c) => (c.id === editing.id ? { ...c, ...v } : c)),
-      );
+      const data: UpdateCourseCommand = {
+        id: editing.id,
+        code: v.code.trim(),
+        title: v.title.trim(),
+        description: v.description?.trim() || null,
+      };
+      updateCourse.mutate({ id: editing.id, data });
     } else {
-      setCourses((p) => [...p, { id: Date.now().toString(), ...v }]);
+      const data: CreateCourseCommand = {
+        code: v.code.trim(),
+        title: v.title.trim(),
+        description: v.description?.trim() || null,
+      };
+      createCourse.mutate({ data });
     }
   }
 
+  const isMutating =
+    createCourse.isPending || updateCourse.isPending || deleteCourse.isPending;
+
   return (
     <div className="space-y-6 max-w-screen-xl">
-      {/* ── Page header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
@@ -98,19 +136,32 @@ export default function CoursesPage() {
         </Button>
       </div>
 
-      {/* ── Search ── */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search by name or code…"
+          placeholder="Search by title or code…"
           className="pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {/* ── Card grid ── */}
-      {filtered.length === 0 ? (
+      {Boolean(
+        coursesQuery.error ||
+          createCourse.error ||
+          updateCourse.error ||
+          deleteCourse.error,
+      ) && (
+        <p className="text-sm text-destructive">
+          Something went wrong while syncing courses. Please try again.
+        </p>
+      )}
+
+      {coursesQuery.isLoading ? (
+        <div className="py-24 text-center text-sm text-muted-foreground">
+          Loading courses…
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
             <BookOpen className="h-6 w-6 text-muted-foreground" />
@@ -139,22 +190,22 @@ export default function CoursesPage() {
                 </div>
 
                 <CardTitle className="text-base leading-snug mt-2">
-                  {course.name}
+                  {course.title}
                 </CardTitle>
               </CardHeader>
 
               <CardContent className="pt-0">
-                <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                  {course.description}
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Created {new Date(course.createdAt).toLocaleDateString()}
                 </p>
 
-                {/* Quick action row on hover */}
                 <div className="flex gap-2 mt-4 pt-3 border-t opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <Button
                     variant="outline"
                     size="sm"
                     className="flex-1 h-7 text-xs gap-1.5"
                     onClick={() => openEdit(course)}
+                    disabled={isMutating}
                   >
                     <Pencil className="h-3 w-3" />
                     Edit
@@ -164,6 +215,7 @@ export default function CoursesPage() {
                     size="sm"
                     className="flex-1 h-7 text-xs gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/5"
                     onClick={() => handleDelete(course.id)}
+                    disabled={isMutating}
                   >
                     <Trash2 className="h-3 w-3" />
                     Delete
@@ -173,7 +225,6 @@ export default function CoursesPage() {
             </Card>
           ))}
 
-          {/* Add new placeholder */}
           <button
             type="button"
             onClick={openCreate}
@@ -189,7 +240,6 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {/* ── CRUD Dialog ── */}
       <CrudDialog
         open={dialogOpen}
         onOpenChange={setDialog}
@@ -198,9 +248,9 @@ export default function CoursesPage() {
         defaultValues={
           editing
             ? {
-                name: editing.name,
+                title: editing.title,
                 code: editing.code,
-                description: editing.description,
+                description: "",
               }
             : EMPTY
         }

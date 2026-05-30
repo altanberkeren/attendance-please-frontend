@@ -141,7 +141,7 @@ export function CreatableCombobox({
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-sm font-medium text-primary outline-none hover:bg-accent focus:bg-accent"
               >
                 <Plus className="h-4 w-4" />
-                {createLabel}: <span className="truncate">{query.trim()}</span>
+                {createLabel}
               </button>
             </>
           ) : null}
