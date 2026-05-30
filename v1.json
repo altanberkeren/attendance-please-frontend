@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5188/"
+      "url": "http://localhost:5055/"
     }
   ],
   "paths": {
@@ -1188,6 +1188,55 @@
                   "items": {
                     "$ref": "#/components/schemas/EnrollmentDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Enrollments/bulk": {
+      "post": {
+        "tags": [
+          "Enrollments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrollStudentsCommand"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrollStudentsCommand"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkEnrollStudentsCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrollStudentsResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrollStudentsResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEnrollStudentsResult"
                 }
               }
             }
@@ -2585,6 +2634,111 @@
           }
         }
       },
+      "BulkEnrollStudentItem": {
+        "required": [
+          "studentNumber",
+          "importedName",
+          "sectionId"
+        ],
+        "type": "object",
+        "properties": {
+          "studentNumber": {
+            "type": "string"
+          },
+          "importedName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BulkEnrollStudentResult": {
+        "required": [
+          "studentNumber",
+          "success",
+          "linkedUser",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "studentNumber": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "linkedUser": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "BulkEnrollStudentsCommand": {
+        "required": [
+          "courseOfferingId",
+          "students"
+        ],
+        "type": "object",
+        "properties": {
+          "courseOfferingId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkEnrollStudentItem"
+            }
+          }
+        }
+      },
+      "BulkEnrollStudentsResult": {
+        "required": [
+          "successCount",
+          "errorCount",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "successCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "errorCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkEnrollStudentResult"
+            }
+          }
+        }
+      },
       "CourseDto": {
         "required": [
           "id",
@@ -2925,10 +3079,12 @@
         "required": [
           "id",
           "userId",
+          "studentNumber",
           "userName",
           "courseOfferingId",
           "sectionId",
           "sectionName",
+          "isLinkedUser",
           "createdAt"
         ],
         "type": "object",
@@ -2944,10 +3100,14 @@
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "studentNumber": {
+            "type": "string"
           },
           "userName": {
             "type": "string"
@@ -2971,6 +3131,9 @@
           "sectionName": {
             "type": "string"
           },
+          "isLinkedUser": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -2980,6 +3143,8 @@
       "EnrollStudentCommand": {
         "required": [
           "userId",
+          "studentNumber",
+          "importedName",
           "courseOfferingId",
           "sectionId"
         ],
@@ -2988,10 +3153,23 @@
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "null",
               "integer",
               "string"
             ],
             "format": "int32"
+          },
+          "studentNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "importedName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "courseOfferingId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -3835,6 +4013,7 @@
           "id",
           "name",
           "email",
+          "studentNumber",
           "role",
           "roles",
           "createdAt"
@@ -3854,6 +4033,12 @@
           },
           "email": {
             "type": "string"
+          },
+          "studentNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "role": {
             "type": "string"

@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { usePostApiEnrollments } from "@/lib/api/enrollments/enrollments";
+import { usePostApiEnrollmentsBulk } from "@/lib/api/enrollments/enrollments";
 import type { SectionDto } from "@/lib/api/model";
 import {
   getGetApiSectionsQueryKey,
@@ -49,6 +49,8 @@ interface ParsedStudent {
   last_name: string;
   status: RowStatus;
   error?: string;
+  message?: string;
+  linkedUser?: boolean;
 }
 
 interface ColConfig {
@@ -206,7 +208,7 @@ export function BulkEnrollModal({
   const [pendingSectionName, setPendingSectionName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { mutateAsync: enroll } = usePostApiEnrollments();
+  const { mutateAsync: bulkEnroll } = usePostApiEnrollmentsBulk();
   const { data: sections = [] } = useGetApiSections(
     { courseOfferingId },
     { query: { enabled: open } },
@@ -272,25 +274,37 @@ export function BulkEnrollModal({
   const handleImport = async () => {
     setStep("importing");
     const updated = students.map((s) => ({ ...s }));
+    setStudents(updated);
 
-    for (let i = 0; i < updated.length; i++) {
-      try {
-        await enroll({
-          data: {
-            userId: updated[i].student_no,
-            courseOfferingId,
+    try {
+      const result = await bulkEnroll({
+        data: {
+          courseOfferingId,
+          students: updated.map((student) => ({
+            studentNumber: student.student_no,
+            importedName: [student.first_name, student.last_name].filter(Boolean).join(" ") || null,
             sectionId: cfg.sectionId.trim(),
-          },
-        });
-        updated[i].status = "success";
-      } catch (err: unknown) {
-        updated[i].status = "error";
-        updated[i].error =
-          err instanceof Error ? err.message : "Enrollment failed";
+          })),
+        },
+      });
+      const resultsByNumber = new Map(
+        result.results.map((row) => [row.studentNumber, row]),
+      );
+      for (const student of updated) {
+        const row = resultsByNumber.get(student.student_no);
+        student.status = row?.success ? "success" : "error";
+        student.message = row?.message;
+        student.error = row?.success ? undefined : (row?.message ?? "Enrollment failed");
+        student.linkedUser = row?.linkedUser;
       }
-      setStudents([...updated]);
+    } catch (err: unknown) {
+      for (const student of updated) {
+        student.status = "error";
+        student.error = err instanceof Error ? err.message : "Enrollment failed";
+      }
     }
 
+    setStudents([...updated]);
     onSuccess?.();
   };
 
@@ -563,8 +577,8 @@ export function BulkEnrollModal({
                           <Loader2 className="ml-auto h-4 w-4 animate-spin text-muted-foreground" />
                         )}
                         {s.status === "success" && (
-                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0">
-                            Enrolled
+                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0" title={s.message}>
+                            {s.linkedUser ? "Linked" : "Pending"}
                           </Badge>
                         )}
                         {s.status === "error" && (

@@ -155,9 +155,10 @@ function LastSessionRoster({
     );
   }
 
+  const linkedEnrollments = enrollments.filter((e) => e.userId != null);
   const filteredEnrollments = last.sectionId
-    ? enrollments.filter((e) => String(e.sectionId) === String(last.sectionId))
-    : enrollments;
+    ? linkedEnrollments.filter((e) => String(e.sectionId) === String(last.sectionId))
+    : linkedEnrollments;
 
   const presentAtts = attendances.filter(
     (a) =>
@@ -180,7 +181,7 @@ function LastSessionRoster({
   const absentList = filteredEnrollments
     .filter((e) => !presentIds.has(String(e.userId)))
     .map((e) => ({
-      id: e.userId,
+      id: e.userId!,
       name: e.userName,
       studentId: String(e.userId),
     }));

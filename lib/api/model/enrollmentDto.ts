@@ -8,13 +8,18 @@
 export interface EnrollmentDto {
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   id: number | string;
-  /** @pattern ^-?(?:0|[1-9]\d*)$ */
-  userId: number | string;
+  /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+  userId: number | string | null;
+  studentNumber: string;
   userName: string;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   courseOfferingId: number | string;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   sectionId: number | string;
   sectionName: string;
+  isLinkedUser: boolean;
   createdAt: string;
 }

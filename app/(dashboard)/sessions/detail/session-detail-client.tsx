@@ -97,12 +97,13 @@ function SessionDetail({ session }: { session: SessionDto }) {
       { courseOfferingId: moduleData?.courseOfferingId },
       { query: { enabled: !!moduleData?.courseOfferingId } },
     );
+  const linkedEnrollments = enrollments.filter((enrollment) => enrollment.userId != null);
   const sectionEnrollments = session.sectionId
-    ? enrollments.filter(
+    ? linkedEnrollments.filter(
         (enrollment) =>
           String(enrollment.sectionId) === String(session.sectionId),
       )
-    : enrollments;
+    : linkedEnrollments;
 
   const presentAtts = attendances.filter(
     (attendance) =>
@@ -126,7 +127,7 @@ function SessionDetail({ session }: { session: SessionDto }) {
   const absentList = sectionEnrollments
     .filter((enrollment) => !presentIds.has(String(enrollment.userId)))
     .map((enrollment) => ({
-      id: enrollment.userId,
+      id: enrollment.userId!,
       name: enrollment.userName,
       studentId: String(enrollment.userId),
     }));

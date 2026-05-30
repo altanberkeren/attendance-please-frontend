@@ -31,6 +31,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
+import { CreatableCombobox } from "@/components/ui/creatable-combobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -146,40 +148,74 @@ function shortStatus(status: string) {
   return "-";
 }
 
+function studentNumberFromEmail(email?: string | null) {
+  const suffix = "@student.ius.edu.ba";
+  const normalized = email?.trim().toLowerCase() ?? "";
+  if (!normalized.endsWith(suffix)) return "";
+  const local = normalized.slice(0, -suffix.length);
+  return /^\d+$/.test(local) ? local : "";
+}
+
 function ManualEnrollmentDialog({
   open,
   onOpenChange,
   sections,
+  users,
   onAdd,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sections: { id: number | string; name: string }[];
+  users: UserDto[];
   onAdd: (student: {
-    userId: string;
-    userName: string;
+    userId: number | string | null;
+    studentNumber: string;
+    importedName: string | null;
     sectionId: number | string;
     sectionName: string;
   }) => void;
 }) {
-  const [userId, setUserId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [studentNumber, setStudentNumber] = useState("");
   const [name, setName] = useState("");
   const [sectionId, setSectionId] = useState<string>("");
   const selectedSection =
     sections.find((section) => String(section.id) === sectionId) ?? sections[0];
-  const canSave = userId.trim() && name.trim() && selectedSection;
+  const selectedUser = users.find((user) => String(user.id) === selectedUserId);
+  const effectiveStudentNumber =
+    studentNumber.trim() || selectedUser?.studentNumber || studentNumberFromEmail(selectedUser?.email);
+  const canSave = !!effectiveStudentNumber && !!selectedSection;
+  const userOptions = users.map((user) => ({
+    value: String(user.id),
+    label: user.name,
+    sublabel: `${(user.studentNumber ?? studentNumberFromEmail(user.email)) || "No student no"} · ${user.email}`,
+  }));
+
+  function reset() {
+    setSelectedUserId("");
+    setStudentNumber("");
+    setName("");
+    setSectionId("");
+  }
+
+  function handleUserChange(value: string) {
+    setSelectedUserId(value);
+    const user = users.find((candidate) => String(candidate.id) === value);
+    if (!user) return;
+    setStudentNumber(user.studentNumber ?? studentNumberFromEmail(user.email));
+    setName(user.name);
+  }
 
   function handleAdd() {
     if (!canSave || !selectedSection) return;
     onAdd({
-      userId: userId.trim(),
-      userName: name.trim(),
+      userId: selectedUser ? selectedUser.id : null,
+      studentNumber: effectiveStudentNumber,
+      importedName: name.trim() || selectedUser?.name || null,
       sectionId: selectedSection.id,
       sectionName: selectedSection.name,
     });
-    setUserId("");
-    setName("");
-    setSectionId("");
+    reset();
     onOpenChange(false);
   }
 
@@ -189,25 +225,44 @@ function ManualEnrollmentDialog({
         <DialogHeader>
           <DialogTitle>Add Student Manually</DialogTitle>
           <DialogDescription>
-            Add one student to this course offering and assign the section they
-            belong to.
+            Select an existing student or enter a university student number.
+            Name is optional for pending students and will be replaced when they log in.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Student ID</Label>
-            <Input
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-              placeholder="e.g. 20250042"
+            <Label>Registered Student</Label>
+            <CreatableCombobox
+              options={userOptions}
+              value={selectedUserId}
+              onChange={handleUserChange}
+              onCreate={(value) => {
+                setSelectedUserId("");
+                setStudentNumber(value);
+              }}
+              placeholder="Search registered students…"
+              searchPlaceholder="Search by name, email, or no…"
+              createLabel="Use typed value as student number"
+              emptyLabel="No registered student found."
             />
           </div>
           <div className="space-y-2">
-            <Label>Student Name</Label>
+            <Label>Student Number</Label>
+            <Input
+              value={studentNumber}
+              onChange={(event) => {
+                setSelectedUserId("");
+                setStudentNumber(event.target.value);
+              }}
+              placeholder="e.g. 230302292"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Name <span className="text-muted-foreground">(optional)</span></Label>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Full name"
+              placeholder="Full name from list"
             />
           </div>
           <div className="space-y-2">
@@ -256,7 +311,7 @@ function EditEnrollmentDialog({
     sectionName: string;
   }) => void;
 }) {
-  const [userId, setUserId] = useState(() => String(enrollment?.userId ?? ""));
+  const [studentNumber] = useState(() => enrollment?.studentNumber ?? "");
   const [name, setName] = useState(() => enrollment?.userName ?? "");
   const [sectionId, setSectionId] = useState<string>(() =>
     String(enrollment?.sectionId ?? ""),
@@ -268,14 +323,13 @@ function EditEnrollmentDialog({
       (section) => String(section.id) === String(enrollment?.sectionId),
     ) ??
     sections[0];
-  const canSave =
-    !!enrollment && userId.trim() && name.trim() && selectedSection;
+  const canSave = !!enrollment && !!selectedSection;
 
   function handleSave() {
     if (!canSave || !selectedSection) return;
     onSave({
-      userId: userId.trim(),
-      userName: name.trim(),
+      userId: enrollment.userId ?? enrollment.studentNumber,
+      userName: name.trim() || enrollment.userName,
       sectionId: selectedSection.id,
       sectionName: selectedSection.name,
     });
@@ -293,12 +347,8 @@ function EditEnrollmentDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Student ID</Label>
-            <Input
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-              placeholder="e.g. 20250042"
-            />
+            <Label>Student Number</Label>
+            <Input value={studentNumber} readOnly />
           </div>
           <div className="space-y-2">
             <Label>Student Name</Label>
@@ -402,14 +452,18 @@ function StaffAssignmentDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>User</Label>
-            <select value={userId} onChange={(event) => setUserId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
-              <option value="">Select a user…</option>
-              {users.map((user) => (
-                <option key={String(user.id)} value={String(user.id)}>
-                  {user.name} · {user.email} · {user.role}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              options={users.map((user) => ({
+                value: String(user.id),
+                label: user.name,
+                sublabel: `${user.email} · ${user.role}`,
+              }))}
+              value={userId}
+              onChange={setUserId}
+              placeholder="Select a user…"
+              searchPlaceholder="Search by name, email, or role…"
+              emptyLabel="No user found."
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -856,7 +910,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     if (person.scope === CourseOfferingStaffScope.Offering) return isOfferingOwner;
     return isOfferingOwner || (person.sectionId != null && ownedSectionIds.has(String(person.sectionId)));
   };
-  const { data: apiUsers = [], isLoading: loadingUsers } = useGetApiUsers({ query: { enabled: canManageStaff } });
+  const { data: apiUsers = [], isLoading: loadingUsers } = useGetApiUsers({ query: { enabled: canManageStaff || hasInstructorAccess } });
   const selectedSection =
     activeSectionId === "all"
       ? null
@@ -941,14 +995,17 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     : 0;
 
   async function handleManualAdd(student: {
-    userId: string;
-    userName: string;
+    userId: number | string | null;
+    studentNumber: string;
+    importedName: string | null;
     sectionId: number | string;
     sectionName: string;
   }) {
     await enrollStudent({
       data: {
         userId: student.userId,
+        studentNumber: student.studentNumber,
+        importedName: student.importedName,
         courseOfferingId: offeringId,
         sectionId: student.sectionId,
       },
@@ -1388,7 +1445,12 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                             {student.userName}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
-                            {student.userId}
+                            {student.studentNumber}
+                            {!student.isLinkedUser ? (
+                              <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                pending
+                              </span>
+                            ) : null}
                           </TableCell>
                           {showSectionColumn && (
                             <TableCell>{student.sectionName}</TableCell>
@@ -1543,6 +1605,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
         open={manualOpen}
         onOpenChange={setManualOpen}
         sections={sections}
+        users={apiUsers.filter((candidate) => candidate.roles.includes("Student") || candidate.role === "Student")}
         onAdd={handleManualAdd}
       />
       <EditEnrollmentDialog

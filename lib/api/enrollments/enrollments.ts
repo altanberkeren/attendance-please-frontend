@@ -24,6 +24,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BulkEnrollStudentsCommand,
+  BulkEnrollStudentsResult,
   EnrollStudentCommand,
   EnrollmentDto,
   GetApiEnrollmentsParams,
@@ -180,7 +182,64 @@ export function useGetApiEnrollments<TData = Awaited<ReturnType<typeof getApiEnr
 
 
 
-export const putApiEnrollmentsIdSection = (
+export const postApiEnrollmentsBulk = (
+    bulkEnrollStudentsCommand: BulkEnrollStudentsCommand,
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<BulkEnrollStudentsResult>(
+      {url: `/api/Enrollments/bulk`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: bulkEnrollStudentsCommand, signal
+    },
+      );
+    }
+
+
+
+export const getPostApiEnrollmentsBulkMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, TError,{data: BulkEnrollStudentsCommand}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, TError,{data: BulkEnrollStudentsCommand}, TContext> => {
+
+const mutationKey = ['postApiEnrollmentsBulk'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, {data: BulkEnrollStudentsCommand}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postApiEnrollmentsBulk(data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiEnrollmentsBulkMutationResult = NonNullable<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>>
+    export type PostApiEnrollmentsBulkMutationBody = BulkEnrollStudentsCommand
+    export type PostApiEnrollmentsBulkMutationError = unknown
+
+    export const usePostApiEnrollmentsBulk = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiEnrollmentsBulk>>, TError,{data: BulkEnrollStudentsCommand}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiEnrollmentsBulk>>,
+        TError,
+        {data: BulkEnrollStudentsCommand},
+        TContext
+      > => {
+      return useMutation(getPostApiEnrollmentsBulkMutationOptions(options), queryClient);
+    }
+    export const putApiEnrollmentsIdSection = (
     id: number | string,
     updateEnrollmentSectionCommand: UpdateEnrollmentSectionCommand,
  signal?: AbortSignal

@@ -10,6 +10,8 @@ export interface UserDto {
   id: number | string;
   name: string;
   email: string;
+  /** @nullable */
+  studentNumber: string | null;
   role: string;
   roles: string[];
   createdAt: string;

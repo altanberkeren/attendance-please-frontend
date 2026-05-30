@@ -582,6 +582,7 @@ function ManualAddPanel({
 
   const available = enrollments.filter(
     (e) =>
+      e.userId != null &&
       !markedUserIds.has(String(e.userId)) &&
       e.userName.toLowerCase().includes(query.toLowerCase()),
   );
@@ -627,7 +628,7 @@ function ManualAddPanel({
                 <button
                   key={String(e.userId)}
                   type="button"
-                  onClick={() => onMark(e.userId, e.userName)}
+                  onClick={() => e.userId != null && onMark(e.userId, e.userName)}
                   className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm hover:bg-muted/60 cursor-pointer"
                 >
                   <span className="font-medium">{e.userName}</span>
@@ -700,15 +701,16 @@ function LiveSession({
     prevAttCountRef.current = attendances.length;
   }, [attendances]);
 
+  const linkedEnrollments = enrollments.filter((e) => e.userId != null);
   const markedUserIds = new Set(attendances.map((a) => String(a.userId)));
   const presentList = attendances.filter(
     (a) => a.status === "Present" || a.status === "Late",
   );
-  const absentList = enrollments.filter(
+  const absentList = linkedEnrollments.filter(
     (e) => !markedUserIds.has(String(e.userId)),
   );
-  const pct = enrollments.length
-    ? Math.round((presentList.length / enrollments.length) * 100)
+  const pct = linkedEnrollments.length
+    ? Math.round((presentList.length / linkedEnrollments.length) * 100)
     : 0;
 
   async function onMark(userId: number | string, _name: string) {
@@ -764,7 +766,7 @@ function LiveSession({
               },
               {
                 label: "Absent",
-                value: enrollments.length - presentList.length,
+                value: linkedEnrollments.length - presentList.length,
                 cls: "text-muted-foreground",
               },
               { label: "Duration", value: timer, cls: "" },
@@ -839,7 +841,7 @@ function LiveSession({
               <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
               <span className="font-semibold">{presentList.length}</span>
               <span className="text-muted-foreground">
-                / {enrollments.length} present
+                / {linkedEnrollments.length} present
               </span>
             </div>
             <span
@@ -929,7 +931,7 @@ function LiveSession({
               Students
             </span>
             <span className="text-xs text-muted-foreground">
-              {presentList.length}/{enrollments.length}
+              {presentList.length}/{linkedEnrollments.length}
             </span>
           </div>
           {/* Search */}
@@ -983,7 +985,7 @@ function LiveSession({
                     {e.userName}
                   </span>
                   <button type="button"
-                    onClick={() => onMark(e.userId, e.userName)}
+                    onClick={() => e.userId != null && onMark(e.userId, e.userName)}
                     className="text-[10px] text-primary opacity-0 group-hover:opacity-100 transition-opacity hover:underline shrink-0"
                   >
                     Mark
