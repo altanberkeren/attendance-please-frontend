@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfilePhoto } from "@/hooks/use-profile-photo";
+import { useGetApiCourseOfferings } from "@/lib/api/course-offerings/course-offerings";
 import { getPrimaryRole } from "@/lib/auth/roles";
 
 type NavItem = {
@@ -131,7 +132,26 @@ export function AppSidebar() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { photoUrl } = useProfilePhoto();
-  const navGroups = getNavGroups(user);
+  const userId = user?.id ?? null;
+  const role = getPrimaryRole(user);
+  const { data: assignedOfferings = [] } = useGetApiCourseOfferings(
+    userId ? { staffUserId: userId } : undefined,
+    { query: { enabled: !!userId && role === "Student", retry: false } },
+  );
+  const navGroups =
+    role === "Student" && assignedOfferings.length > 0
+      ? [
+          ...STUDENT_NAV_GROUPS.slice(0, 2),
+          {
+            label: "Teaching",
+            items: [
+              { title: "Assisted Courses", href: "/staff-courses", icon: GraduationCap },
+              { title: "Attendance", href: "/attendance", icon: QrCode },
+            ],
+          },
+          ...STUDENT_NAV_GROUPS.slice(2),
+        ]
+      : getNavGroups(user);
 
   async function handleSignOut() {
     await signOut();

@@ -4,12 +4,21 @@
  * Api | v1
  * OpenAPI spec version: 1.0.0
  */
+import type { CourseOfferingStaffAccessLevel } from './courseOfferingStaffAccessLevel';
+import type { CourseOfferingStaffScope } from './courseOfferingStaffScope';
 
 export interface AssignStaffCommand {
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   courseOfferingId: number | string;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   userId: number | string;
+  scope: CourseOfferingStaffScope;
+  accessLevel: CourseOfferingStaffAccessLevel;
+  /**
+     * @nullable
+     * @pattern ^-?(?:0|[1-9]\d*)$
+     */
+  sectionId: number | string | null;
   /** @nullable */
   roleTitle: string | null;
 }

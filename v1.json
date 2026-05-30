@@ -2312,6 +2312,9 @@
         "required": [
           "courseOfferingId",
           "userId",
+          "scope",
+          "accessLevel",
+          "sectionId",
           "roleTitle"
         ],
         "type": "object",
@@ -2327,6 +2330,21 @@
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseOfferingStaffScope"
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/CourseOfferingStaffAccessLevel"
+          },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
               "integer",
               "string"
             ],
@@ -2592,12 +2610,26 @@
           }
         }
       },
+      "CourseOfferingStaffAccessLevel": {
+        "enum": [
+          "Owner",
+          "Instructor",
+          "Assistant",
+          "Viewer"
+        ]
+      },
       "CourseOfferingStaffDto": {
         "required": [
           "id",
           "courseOfferingId",
+          "sectionId",
+          "sectionName",
           "userId",
           "userName",
+          "userEmail",
+          "userRole",
+          "scope",
+          "accessLevel",
           "roleTitle",
           "createdAt"
         ],
@@ -2619,6 +2651,21 @@
             ],
             "format": "int32"
           },
+          "sectionId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sectionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "userId": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -2629,6 +2676,18 @@
           },
           "userName": {
             "type": "string"
+          },
+          "userEmail": {
+            "type": "string"
+          },
+          "userRole": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseOfferingStaffScope"
+          },
+          "accessLevel": {
+            "$ref": "#/components/schemas/CourseOfferingStaffAccessLevel"
           },
           "roleTitle": {
             "type": [
@@ -2641,6 +2700,12 @@
             "format": "date-time"
           }
         }
+      },
+      "CourseOfferingStaffScope": {
+        "enum": [
+          "Offering",
+          "Section"
+        ]
       },
       "CreateCourseCommand": {
         "required": [

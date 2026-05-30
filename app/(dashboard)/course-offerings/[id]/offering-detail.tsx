@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 import { BulkEnrollModal } from "@/components/enrollment/bulk-enroll-modal";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -56,7 +57,9 @@ import {
 } from "@/lib/api/attendances/attendances";
 import {
   getGetApiCourseOfferingStaffsQueryKey,
+  useDeleteApiCourseOfferingStaffsId,
   useGetApiCourseOfferingStaffs,
+  usePostApiCourseOfferingStaffs,
 } from "@/lib/api/course-offering-staffs/course-offering-staffs";
 import { useGetApiCourseOfferingsId } from "@/lib/api/course-offerings/course-offerings";
 import {
@@ -66,8 +69,13 @@ import {
   usePostApiEnrollments,
   usePutApiEnrollmentsIdSection,
 } from "@/lib/api/enrollments/enrollments";
-import type { EnrollmentDto, SectionDto, SessionDto } from "@/lib/api/model";
-import { AttendanceMethod, AttendanceStatus } from "@/lib/api/model";
+import type { EnrollmentDto, SectionDto, SessionDto, UserDto } from "@/lib/api/model";
+import {
+  AttendanceMethod,
+  AttendanceStatus,
+  CourseOfferingStaffAccessLevel,
+  CourseOfferingStaffScope,
+} from "@/lib/api/model";
 import {
   getGetApiSectionsQueryKey,
   useDeleteApiSectionsId,
@@ -79,6 +87,8 @@ import {
   getGetApiSessionsQueryKey,
   useGetApiSessions,
 } from "@/lib/api/sessions/sessions";
+import { useGetApiUsers } from "@/lib/api/users/users";
+import { getPrimaryRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -325,6 +335,120 @@ function EditEnrollmentDialog({
   );
 }
 
+function StaffAssignmentDialog({
+  open,
+  onOpenChange,
+  users,
+  sections,
+  assignedKeys,
+  pending,
+  allowOfferingScope,
+  canAssignOwner,
+  onAssign,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  users: UserDto[];
+  sections: SectionDto[];
+  assignedKeys: Set<string>;
+  pending: boolean;
+  allowOfferingScope: boolean;
+  canAssignOwner: boolean;
+  onAssign: (assignment: {
+    userId: number | string;
+    scope: typeof CourseOfferingStaffScope[keyof typeof CourseOfferingStaffScope];
+    accessLevel: typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel];
+    sectionId: number | string | null;
+    roleTitle: string | null;
+  }) => void;
+}) {
+  const [userId, setUserId] = useState("");
+  const [scope, setScope] = useState<typeof CourseOfferingStaffScope[keyof typeof CourseOfferingStaffScope]>(allowOfferingScope ? CourseOfferingStaffScope.Offering : CourseOfferingStaffScope.Section);
+  const [accessLevel, setAccessLevel] = useState<typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel]>(CourseOfferingStaffAccessLevel.Assistant);
+  const [sectionId, setSectionId] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
+
+  const normalizedSectionId = scope === CourseOfferingStaffScope.Section ? sectionId : "";
+  const selectedKey = `${userId}:${scope}:${normalizedSectionId}`;
+  const accessLevels = Object.values(CourseOfferingStaffAccessLevel).filter((level) => canAssignOwner || level !== CourseOfferingStaffAccessLevel.Owner);
+  const canSave = userId && (allowOfferingScope || scope === CourseOfferingStaffScope.Section) && (scope === CourseOfferingStaffScope.Offering || sectionId) && !assignedKeys.has(selectedKey);
+
+  function handleAssign() {
+    if (!canSave) return;
+    onAssign({
+      userId,
+      scope,
+      accessLevel,
+      sectionId: scope === CourseOfferingStaffScope.Section ? sectionId : null,
+      roleTitle: roleTitle.trim() || null,
+    });
+    setUserId("");
+    setScope(allowOfferingScope ? CourseOfferingStaffScope.Offering : CourseOfferingStaffScope.Section);
+    setAccessLevel(CourseOfferingStaffAccessLevel.Assistant);
+    setSectionId("");
+    setRoleTitle("");
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Assign course access</DialogTitle>
+          <DialogDescription>
+            Assign any user as offering-level or section-level staff without changing their global role.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>User</Label>
+            <select value={userId} onChange={(event) => setUserId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="">Select a user…</option>
+              {users.map((user) => (
+                <option key={String(user.id)} value={String(user.id)}>
+                  {user.name} · {user.email} · {user.role}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Scope</Label>
+              <select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                {allowOfferingScope ? <option value={CourseOfferingStaffScope.Offering}>Offering</option> : null}
+                <option value={CourseOfferingStaffScope.Section}>Section</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Access</Label>
+              <select value={accessLevel} onChange={(event) => setAccessLevel(event.target.value as typeof accessLevel)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                {accessLevels.map((level) => <option key={level} value={level}>{level}</option>)}
+              </select>
+            </div>
+          </div>
+          {scope === CourseOfferingStaffScope.Section ? (
+            <div className="space-y-2">
+              <Label>Section</Label>
+              <select value={sectionId} onChange={(event) => setSectionId(event.target.value)} className="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">Select a section…</option>
+                {sections.map((section) => <option key={String(section.id)} value={String(section.id)}>{section.name}</option>)}
+              </select>
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            <Label>Title</Label>
+            <Input value={roleTitle} onChange={(event) => setRoleTitle(event.target.value)} placeholder="e.g. TA, Lab Assistant, Guest Lecturer" />
+          </div>
+          {assignedKeys.has(selectedKey) ? <p className="text-xs text-destructive">This user already has this exact assignment.</p> : null}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleAssign} disabled={!canSave || pending}>Assign</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SectionManager({
   sections,
   enrollments,
@@ -332,6 +456,7 @@ function SectionManager({
   activeSectionId,
   loading,
   pending,
+  canManage,
   onSelect,
   onCreate,
   onRename,
@@ -343,6 +468,7 @@ function SectionManager({
   activeSectionId: string;
   loading: boolean;
   pending: boolean;
+  canManage: boolean;
   onSelect: (id: string) => void;
   onCreate: (name: string) => void;
   onRename: (section: SectionDto, name: string) => void;
@@ -391,10 +517,12 @@ function SectionManager({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Sections</CardTitle>
-          <Button size="sm" onClick={() => setCreateOpen(true)} disabled={pending}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Section
-          </Button>
+          {canManage ? (
+            <Button size="sm" onClick={() => setCreateOpen(true)} disabled={pending}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Section
+            </Button>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -449,27 +577,29 @@ function SectionManager({
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex gap-1">
-                      {isEditing ? (
-                        <Button size="sm" onClick={() => finishEdit(section)} disabled={pending || !editingName.trim()}>
-                          Save
+                    {canManage ? (
+                      <div className="flex gap-1">
+                        {isEditing ? (
+                          <Button size="sm" onClick={() => finishEdit(section)} disabled={pending || !editingName.trim()}>
+                            Save
+                          </Button>
+                        ) : (
+                          <Button size="icon-xs" variant="ghost" onClick={() => beginEdit(section)} aria-label={`Rename ${section.name}`}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={pending || hasDependents}
+                          onClick={() => onDelete(section)}
+                          aria-label={`Delete ${section.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      ) : (
-                        <Button size="icon-xs" variant="ghost" onClick={() => beginEdit(section)} aria-label={`Rename ${section.name}`}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive"
-                        disabled={pending || hasDependents}
-                        onClick={() => onDelete(section)}
-                        aria-label={`Delete ${section.name}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -514,6 +644,11 @@ function SectionManager({
 function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const primaryRole = getPrimaryRole(user);
+  const isAdmin = primaryRole === "Admin";
+  const isGlobalStaff = primaryRole === "Staff";
+  const currentUserId = user?.id == null ? null : String(user.id);
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const defaultTab = ["matrix", "sections", "staff", "students", "sessions"].includes(
@@ -524,6 +659,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const requestedSectionId = searchParams.get("sectionId");
   const [bulkEnrollOpen, setBulkEnrollOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [staffDialogOpen, setStaffDialogOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string>(
     requestedSectionId ?? "all",
   );
@@ -544,6 +680,8 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     useGetApiSessions({ courseOfferingId: offeringId });
   const { mutateAsync: enrollStudent } = usePostApiEnrollments();
   const { mutateAsync: deleteEnrollment } = useDeleteApiEnrollmentsId();
+  const assignStaff = usePostApiCourseOfferingStaffs();
+  const removeStaff = useDeleteApiCourseOfferingStaffsId();
   const { mutateAsync: updateEnrollmentSection } =
     usePutApiEnrollmentsIdSection();
   const createSection = usePostApiSections();
@@ -560,6 +698,40 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const enrollments = apiEnrollments;
   const staff = apiStaff;
   const sessions = apiSessions;
+  const assignedStaffKeys = new Set(
+    staff.map(
+      (person) =>
+        `${person.userId}:${person.scope}:${person.scope === CourseOfferingStaffScope.Section ? String(person.sectionId) : ""}`,
+    ),
+  );
+  const ownStaffAssignments = currentUserId
+    ? staff.filter((person) => String(person.userId) === currentUserId)
+    : [];
+  const isOfferingOwner = ownStaffAssignments.some(
+    (person) =>
+      person.accessLevel === CourseOfferingStaffAccessLevel.Owner &&
+      person.scope === CourseOfferingStaffScope.Offering,
+  );
+  const ownedSectionIds = new Set(
+    ownStaffAssignments
+      .filter(
+        (person) =>
+          person.accessLevel === CourseOfferingStaffAccessLevel.Owner &&
+          person.scope === CourseOfferingStaffScope.Section &&
+          person.sectionId != null,
+      )
+      .map((person) => String(person.sectionId)),
+  );
+  const hasInstructorAccess = isAdmin || isGlobalStaff || ownStaffAssignments.some(
+    (person) =>
+      person.accessLevel === CourseOfferingStaffAccessLevel.Owner ||
+      person.accessLevel === CourseOfferingStaffAccessLevel.Instructor,
+  );
+  const canManageStaff = isAdmin || isOfferingOwner || ownedSectionIds.size > 0;
+  const manageableStaffSections = isAdmin || isOfferingOwner
+    ? sections
+    : sections.filter((section) => ownedSectionIds.has(String(section.id)));
+  const { data: apiUsers = [], isLoading: loadingUsers } = useGetApiUsers({ query: { enabled: canManageStaff } });
   const selectedSection =
     activeSectionId === "all"
       ? null
@@ -622,6 +794,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const sectionsLoading = loadingSections;
   const sectionMutationPending =
     createSection.isPending || updateSection.isPending || deleteSection.isPending;
+  const staffMutationPending = assignStaff.isPending || removeStaff.isPending;
   const pageLoading = loadingOfferings && !apiOffering;
 
   const totalPresent =
@@ -681,6 +854,32 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   async function handleDeleteSection(section: SectionDto) {
     await deleteSection.mutateAsync({ id: section.id });
     if (activeSectionId === String(section.id)) setActiveSectionId("all");
+    invalidateDetailQueries();
+  }
+
+  async function handleAssignStaff(assignment: {
+    userId: number | string;
+    scope: typeof CourseOfferingStaffScope[keyof typeof CourseOfferingStaffScope];
+    accessLevel: typeof CourseOfferingStaffAccessLevel[keyof typeof CourseOfferingStaffAccessLevel];
+    sectionId: number | string | null;
+    roleTitle: string | null;
+  }) {
+    await assignStaff.mutateAsync({
+      data: {
+        courseOfferingId: offeringId,
+        userId: assignment.userId,
+        scope: assignment.scope,
+        accessLevel: assignment.accessLevel,
+        sectionId: assignment.sectionId,
+        roleTitle: assignment.roleTitle,
+      },
+    });
+    setStaffDialogOpen(false);
+    invalidateDetailQueries();
+  }
+
+  async function handleRemoveStaff(id: number | string) {
+    await removeStaff.mutateAsync({ id });
     invalidateDetailQueries();
   }
 
@@ -906,6 +1105,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
             activeSectionId={activeSectionId}
             loading={sectionsLoading}
             pending={sectionMutationPending}
+            canManage={hasInstructorAccess}
             onSelect={setActiveSectionId}
             onCreate={handleCreateSection}
             onRename={handleRenameSection}
@@ -916,7 +1116,15 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
         <TabsContent value="staff">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Assigned Staff</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-base">Assigned Staff</CardTitle>
+                {canManageStaff ? (
+                  <Button size="sm" onClick={() => setStaffDialogOpen(true)} disabled={loadingUsers || staffMutationPending}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Assign
+                  </Button>
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent>
               {staffLoading ? (
@@ -928,18 +1136,43 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                   No staff assigned.
                 </p>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {staff.map((person) => (
-                    <div
-                      key={String(person.id)}
-                      className="rounded-lg border p-3"
-                    >
-                      <p className="font-medium">{person.userName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {person.roleTitle ?? "Staff"}
-                      </p>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {[CourseOfferingStaffScope.Offering, CourseOfferingStaffScope.Section].map((scope) => {
+                    const scopedStaff = staff.filter((person) => person.scope === scope);
+                    if (scopedStaff.length === 0) return null;
+                    return (
+                      <div key={scope} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">
+                          {scope === CourseOfferingStaffScope.Offering ? "Offering access" : "Section access"}
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {scopedStaff.map((person) => (
+                            <div key={String(person.id)} className="rounded-lg border p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{person.userName}</p>
+                                  <p className="truncate text-xs text-muted-foreground">{person.userEmail}</p>
+                                </div>
+                                {canManageStaff && (isAdmin || person.accessLevel !== CourseOfferingStaffAccessLevel.Owner) ? (
+                                  <Button size="icon-xs" variant="ghost" className="text-destructive hover:text-destructive" disabled={staffMutationPending} onClick={() => handleRemoveStaff(person.id)} aria-label={`Remove ${person.userName}`}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                ) : null}
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-1.5">
+                                <Badge variant="secondary">{person.accessLevel}</Badge>
+                                <Badge variant="outline">{person.userRole}</Badge>
+                                {person.sectionName ? <Badge variant="outline">{person.sectionName}</Badge> : null}
+                              </div>
+                              <p className="mt-2 text-sm text-muted-foreground">
+                                {person.roleTitle ?? (person.scope === CourseOfferingStaffScope.Section ? "Section staff" : "Offering staff")}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -951,25 +1184,27 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="text-base">Enrollment Students</CardTitle>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setManualOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Student
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setBulkEnrollOpen(true)}
-                    className="gap-2"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Import from Excel
-                  </Button>
-                </div>
+                {hasInstructorAccess ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setManualOpen(true)}
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Student
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setBulkEnrollOpen(true)}
+                      className="gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Import from Excel
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </CardHeader>
             <CardContent>
@@ -1005,25 +1240,27 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                             <TableCell>{student.sectionName}</TableCell>
                           )}
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                size="icon-xs"
-                                variant="ghost"
-                                onClick={() => setEditingEnrollment(student)}
-                                aria-label={`Edit ${student.userName}`}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon-xs"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleRemoveEnrollment(student)}
-                                aria-label={`Remove ${student.userName}`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
+                            {hasInstructorAccess ? (
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  onClick={() => setEditingEnrollment(student)}
+                                  aria-label={`Edit ${student.userName}`}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleRemoveEnrollment(student)}
+                                  aria-label={`Remove ${student.userName}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1113,6 +1350,19 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
         </TabsContent>
       </Tabs>
 
+      {canManageStaff ? (
+        <StaffAssignmentDialog
+          open={staffDialogOpen}
+          onOpenChange={setStaffDialogOpen}
+          users={apiUsers}
+          sections={manageableStaffSections}
+          assignedKeys={assignedStaffKeys}
+          pending={staffMutationPending}
+          allowOfferingScope={isAdmin || isOfferingOwner}
+          canAssignOwner={isAdmin}
+          onAssign={handleAssignStaff}
+        />
+      ) : null}
       <BulkEnrollModal
         open={bulkEnrollOpen}
         onOpenChange={setBulkEnrollOpen}
