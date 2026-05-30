@@ -104,16 +104,6 @@ const METHODS: {
   },
 ];
 
-// ── Mock fallback (shared from lib/mock-data) ─────────────────────────────────
-
-import {
-  MOCK_MODULES,
-  MOCK_OFFERINGS,
-  MOCK_SECTIONS,
-  MOCK_SESSIONS,
-  makeMockEnrollments,
-} from "@/lib/mock-data";
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Step = "course" | "session-setup" | "method" | "live";
@@ -197,14 +187,12 @@ function CourseStep({
   setSel,
   onNext,
   isLoading,
-  isMockMode,
 }: {
   offerings: CourseOfferingDto[];
   sel: Selection;
   setSel: (s: Selection) => void;
   onNext: () => void;
   isLoading?: boolean;
-  isMockMode?: boolean;
 }) {
   if (isLoading)
     return (
@@ -226,11 +214,6 @@ function CourseStep({
         <p className="text-sm text-muted-foreground">
           Which course are you teaching right now?
         </p>
-        {isMockMode && (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            Demo Mode
-          </span>
-        )}
       </div>
       <div className="space-y-2">
         {offerings.map((c) => {
@@ -1063,57 +1046,31 @@ export default function AttendancePage() {
       query: { enabled: !!userId },
     });
 
-  // Demo mode: no backend courses found after loading - use mock data
-  const isMockMode =
-    !!userId && !loadingOfferings && (myOfferings?.length ?? 0) === 0;
-
   const selectedCourseOfferingId = sel.courseId ?? 0;
 
   const { data: apiModules, isLoading: loadingModules } = useGetApiModules(
     { courseOfferingId: selectedCourseOfferingId },
-    { query: { enabled: !!sel.courseId && !isMockMode } },
+    { query: { enabled: !!sel.courseId } },
   );
   const { data: apiSections, isLoading: loadingSections } = useGetApiSections(
     { courseOfferingId: selectedCourseOfferingId },
-    { query: { enabled: !!sel.courseId && !isMockMode } },
+    { query: { enabled: !!sel.courseId } },
   );
   const { data: apiEnrollmentsAll } = useGetApiEnrollments(
     { courseOfferingId: selectedCourseOfferingId },
-    { query: { enabled: !!sel.courseId && !isMockMode } },
+    { query: { enabled: !!sel.courseId } },
   );
   const { data: apiSessions = [], isLoading: loadingSessions } =
     useGetApiSessions(
       { courseOfferingId: selectedCourseOfferingId },
-      { query: { enabled: !!sel.courseId && !isMockMode } },
+      { query: { enabled: !!sel.courseId } },
     );
 
-  // Effective data: real API or mock fallback
-  const effectiveOfferings = isMockMode ? MOCK_OFFERINGS : (myOfferings ?? []);
-  const effectiveSections = isMockMode
-    ? sel.courseId
-      ? (MOCK_SECTIONS[String(sel.courseId)] ?? [])
-      : []
-    : (apiSections ?? []);
-  const effectiveModules = isMockMode
-    ? sel.courseId
-      ? (MOCK_MODULES[String(sel.courseId)] ?? [])
-      : []
-    : (apiModules ?? []);
-  const effectiveSessions = isMockMode
-    ? sel.courseId
-      ? MOCK_SESSIONS.filter((session) =>
-          effectiveModules.some(
-            (module) => String(module.id) === String(session.moduleId),
-          ),
-        )
-      : []
-    : apiSessions;
-
-  const effectiveEnrollmentsAll = isMockMode
-    ? sel.courseId
-      ? makeMockEnrollments(Number(sel.courseId), effectiveSections, 45)
-      : []
-    : (apiEnrollmentsAll ?? []);
+  const effectiveOfferings = myOfferings ?? [];
+  const effectiveSections = apiSections ?? [];
+  const effectiveModules = apiModules ?? [];
+  const effectiveSessions = apiSessions;
+  const effectiveEnrollmentsAll = apiEnrollmentsAll ?? [];
 
   // Filter enrollments by section client-side
   const enrollments = sel.sectionId
@@ -1143,18 +1100,11 @@ export default function AttendancePage() {
   const [startError, setStartError] = useState<string | null>(null);
 
   async function handleStartSession() {
-    if (!sel.moduleId || !sel.method || (!userId && !isMockMode)) return;
+    if (!sel.moduleId || !sel.method || !userId) return;
     const openingUserId = userId;
     setIsOpening(true);
     setStartError(null);
     try {
-      if (isMockMode) {
-        setBackendSessionId(
-          `demo-${sel.moduleId}-${sel.sectionId ?? "all"}-${Date.now()}`,
-        );
-        setStep("live");
-        return;
-      }
       if (openingUserId == null) return;
 
       const session = await openSession({
@@ -1168,11 +1118,7 @@ export default function AttendancePage() {
       setBackendSessionId(session.id);
       setStep("live");
     } catch {
-      setStartError(
-        isMockMode
-          ? "Demo mode: No backend record for these courses. To start a real session, courses must be assigned to your account."
-          : "Failed to start session. Please check your backend connection.",
-      );
+      setStartError("Failed to start session. Please check your backend connection.");
     } finally {
       setIsOpening(false);
     }
@@ -1183,11 +1129,7 @@ export default function AttendancePage() {
     setIsClosing(true);
     try {
       await closeSession({ id: backendSessionId });
-      router.push(
-        isMockMode
-          ? "/attendance"
-          : `/sessions/${encodeURIComponent(String(backendSessionId))}`,
-      );
+      router.push(`/sessions/${encodeURIComponent(String(backendSessionId))}`);
     } finally {
       setIsClosing(false);
     }
@@ -1236,7 +1178,6 @@ export default function AttendancePage() {
           setSel={setSel}
           onNext={() => setStep("session-setup")}
           isLoading={loadingOfferings}
-          isMockMode={isMockMode}
         />
       )}
 
