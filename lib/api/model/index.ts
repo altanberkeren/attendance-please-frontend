@@ -60,5 +60,6 @@ export * from './updateModuleCommand';
 export * from './updateSectionCommand';
 export * from './updateStaffCommand';
 export * from './updateTermCommand';
+export * from './updateUserRolesCommand';
 export * from './userDto';
 export * from './userRole';

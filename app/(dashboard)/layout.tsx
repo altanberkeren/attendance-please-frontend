@@ -33,6 +33,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/terms": "Terms",
   "/course-offerings": "Course Offerings",
   "/attendance": "Attendance",
+  "/users": "Users",
   "/my-courses": "My Courses",
   "/staff-courses": "My Courses",
   "/my-attendance": "My Attendance",

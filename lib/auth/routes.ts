@@ -12,6 +12,7 @@ type RouteAccessRule = {
 const ROUTE_ACCESS: RouteAccessRule[] = [
   { prefix: "/courses", roles: ["Admin"] },
   { prefix: "/terms", roles: ["Admin"] },
+  { prefix: "/users", roles: ["Admin"] },
   // Students can be assigned as course staff without changing their global role.
   // The backend still enforces per-offering access; these route rules only prevent
   // the dashboard shell from immediately redirecting legitimate student-staff.

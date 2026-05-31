@@ -11,6 +11,7 @@ import {
   QrCode,
   Settings,
   User,
+  Users,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -64,6 +65,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
       { title: "Courses", href: "/courses", icon: BookOpen },
       { title: "Course Offerings", href: "/course-offerings", icon: Layers },
       { title: "Attendance", href: "/attendance", icon: QrCode },
+      { title: "Users", href: "/users", icon: Users },
     ],
   },
   {
