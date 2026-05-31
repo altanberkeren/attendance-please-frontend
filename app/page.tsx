@@ -35,10 +35,10 @@ const GRAIN =
 type Student = { name: string; meta: string; ok: boolean }
 
 const ROSTER: Student[] = [
-  { name: "Altan Berk Eren", meta: "IUS-20413 · Row 2", ok: true },
-  { name: "Ahmet Tarık Duyar", meta: "IUS-20571 · Row 1", ok: true },
-  { name: "Doğukan Yurttürk", meta: "IUS-20622 · Row 4", ok: true },
-  { name: "Lamija Kozo", meta: "IUS-20688 · Row 3", ok: true },
+  { name: "Alice Martin", meta: "IUS-20413 · Row 2", ok: true },
+  { name: "Bob Chen", meta: "IUS-20571 · Row 1", ok: true },
+  { name: "Carol Silva", meta: "IUS-20622 · Row 4", ok: true },
+  { name: "David Okafor", meta: "IUS-20688 · Row 3", ok: true },
   { name: "Unknown device", meta: "Off-campus · 4.2 km", ok: false },
 ]
 

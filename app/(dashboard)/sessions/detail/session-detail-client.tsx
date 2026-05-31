@@ -25,6 +25,7 @@ import { useGetApiCourseOfferingsId } from "@/lib/api/course-offerings/course-of
 import { useGetApiEnrollments } from "@/lib/api/enrollments/enrollments";
 import type { SessionDto } from "@/lib/api/model";
 import { AttendanceMethod, AttendanceStatus } from "@/lib/api/model";
+import { CAMPUS_WIFI_SSID } from "@/lib/config";
 import { useGetApiModulesId } from "@/lib/api/modules/modules";
 import {
   useGetApiSessionsId,
@@ -306,7 +307,7 @@ function SessionDetail({
                       <div className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs text-blue-500">
                         <Wifi className="h-3.5 w-3.5" />
                         Campus WiFi:{" "}
-                        <strong className="ml-1 font-mono">IUS-Campus</strong>
+                        <strong className="ml-1 font-mono">{CAMPUS_WIFI_SSID}</strong>
                       </div>
                     )}
                     <div className="grid h-[185px] w-[185px] place-items-center rounded-2xl border bg-white p-3.5 shadow">

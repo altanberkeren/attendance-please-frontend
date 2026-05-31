@@ -42,6 +42,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useProfilePhoto } from "@/hooks/use-profile-photo";
 import { useGetApiCourseOfferings } from "@/lib/api/course-offerings/course-offerings";
 import { getPrimaryRole } from "@/lib/auth/roles";
+import { getCurrentSemesterLabel } from "@/lib/config";
 
 type NavItem = {
   title: string;
@@ -178,7 +179,7 @@ export function AppSidebar() {
               AttendanceApp
             </span>
             <span className="text-[10px] text-sidebar-foreground/50 font-medium tracking-wide uppercase">
-              Spring 2025
+              {getCurrentSemesterLabel()}
             </span>
           </div>
         </Link>

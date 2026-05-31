@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { CAMPUS_WIFI_SSID } from "@/lib/config";
 
 // ── API hooks ─────────────────────────────────────────────────────────────────
 
@@ -906,7 +907,7 @@ function LiveSession({
                 <div className="flex items-center gap-1.5 text-xs text-blue-500 bg-blue-500/10 rounded-lg px-3 py-1.5 w-full justify-center">
                   <Wifi className="h-3.5 w-3.5" />
                   Campus WiFi:{" "}
-                  <strong className="font-mono ml-1">IUS-Campus</strong>
+                  <strong className="font-mono ml-1">{CAMPUS_WIFI_SSID}</strong>
                 </div>
               )}
               <div className="grid h-[185px] w-[185px] place-items-center rounded-2xl border bg-white p-3.5 shadow">

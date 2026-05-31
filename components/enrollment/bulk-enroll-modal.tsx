@@ -8,6 +8,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { BULK_ENROLL_DEFAULTS } from "@/lib/config";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
@@ -185,11 +186,11 @@ function parseWithConfig(
 }
 
 const DEFAULT_CONFIG: ColConfig = {
-  startRow: "14",
-  noCol: "B",
-  nameCol: "D",
-  surnameCol: "E",
-  sectionId: "",
+  startRow: BULK_ENROLL_DEFAULTS.startRow,
+  noCol: BULK_ENROLL_DEFAULTS.noCol,
+  nameCol: BULK_ENROLL_DEFAULTS.nameCol,
+  surnameCol: BULK_ENROLL_DEFAULTS.surnameCol,
+  sectionId: BULK_ENROLL_DEFAULTS.sectionId,
 };
 
 export function BulkEnrollModal({

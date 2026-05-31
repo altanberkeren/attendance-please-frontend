@@ -55,10 +55,10 @@ export default function SettingsPage() {
   const profileForm = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      firstName: "Dogukan",
-      lastName: "K.",
-      email: "dogukan7400@gmail.com",
-      title: "Administrator",
+      firstName: "",
+      lastName: "",
+      email: "",
+      title: "",
     },
   });
 
@@ -68,14 +68,14 @@ export default function SettingsPage() {
   });
 
   function onProfileSubmit(values: ProfileValues) {
-    console.log("Profile saved:", values);
-    // TODO: call API
+    // TODO: call profile update API once Orval generates the hook
+    void values;
   }
 
   function onPasswordSubmit(values: PasswordValues) {
-    console.log("Password changed:", values);
     passwordForm.reset();
-    // TODO: call API
+    // TODO: call change-password API once Orval generates the hook
+    void values;
   }
 
   return (
@@ -107,7 +107,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-4">
             <Avatar size="lg">
               <AvatarFallback className="bg-primary text-primary-foreground font-bold text-lg">
-                DK
+                U
               </AvatarFallback>
             </Avatar>
             <div>
@@ -116,9 +116,6 @@ export default function SettingsPage() {
                 Avatar is generated from your initials
               </p>
             </div>
-            <Badge variant="outline" className="ml-auto">
-              Admin
-            </Badge>
           </div>
 
           <Separator />
