@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   Clock,
+  Layers,
   Loader2,
   Nfc,
   Pencil,
@@ -18,7 +19,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { BulkEnrollModal } from "@/components/enrollment/bulk-enroll-modal";
 import { Badge } from "@/components/ui/badge";
@@ -72,13 +73,29 @@ import {
   usePostApiEnrollments,
   usePutApiEnrollmentsIdSection,
 } from "@/lib/api/enrollments/enrollments";
-import type { CourseOfferingStaffDto, EnrollmentDto, SectionDto, SessionDto, UserDto } from "@/lib/api/model";
+import type {
+  CourseOfferingStaffDto,
+  CreateModuleCommand,
+  EnrollmentDto,
+  ModuleDto,
+  SectionDto,
+  SessionDto,
+  UpdateModuleCommand,
+  UserDto,
+} from "@/lib/api/model";
 import {
   AttendanceMethod,
   AttendanceStatus,
   CourseOfferingStaffAccessLevel,
   CourseOfferingStaffScope,
 } from "@/lib/api/model";
+import {
+  getGetApiModulesQueryKey,
+  useDeleteApiModulesId,
+  useGetApiModules,
+  usePostApiModules,
+  usePutApiModulesId,
+} from "@/lib/api/modules/modules";
 import {
   getGetApiSectionsQueryKey,
   useDeleteApiSectionsId,
@@ -620,6 +637,29 @@ function StaffEditDialog({
   );
 }
 
+function EmptyTabState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
+    </div>
+  );
+}
+
 function SectionManager({
   sections,
   enrollments,
@@ -702,10 +742,17 @@ function SectionManager({
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : sections.length === 0 ? (
-          <p className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-            No sections yet. Add a section before importing or manually enrolling
-            students.
-          </p>
+          <EmptyTabState
+            icon={Users}
+            title="No sections yet"
+            description="Add sections before importing or manually enrolling students."
+            action={canManage ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)} disabled={pending}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create first section
+              </Button>
+            ) : null}
+          />
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {sections.map((section) => {
@@ -812,6 +859,368 @@ function SectionManager({
   );
 }
 
+function ModuleManager({
+  courseOfferingId,
+  modules,
+  sessions,
+  loading,
+  pending,
+  canManage,
+  onCreate,
+  onBulkCreate,
+  onUpdate,
+  onReorder,
+  onDelete,
+}: {
+  courseOfferingId: number | string;
+  modules: ModuleDto[];
+  sessions: SessionDto[];
+  loading: boolean;
+  pending: boolean;
+  canManage: boolean;
+  onCreate: (module: CreateModuleCommand) => void;
+  onBulkCreate: (modules: CreateModuleCommand[]) => void;
+  onUpdate: (id: ModuleDto["id"], module: UpdateModuleCommand) => void;
+  onReorder: (modules: UpdateModuleCommand[]) => void;
+  onDelete: (module: ModuleDto) => void;
+}) {
+  const sortedModules = [...modules].sort(
+    (a, b) => Number(a.orderIndex) - Number(b.orderIndex),
+  );
+  const [isAdding, setIsAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [bulkCount, setBulkCount] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<{
+    id: string;
+    position: "before" | "after";
+  } | null>(null);
+
+  function sessionCount(module: ModuleDto) {
+    return sessions.filter((session) => String(session.moduleId) === String(module.id)).length;
+  }
+
+  function nextOrderIndex() {
+    const maxOrder = sortedModules.reduce(
+      (max, module) => Math.max(max, Number(module.orderIndex) || 0),
+      0,
+    );
+    return maxOrder + 1;
+  }
+
+  function beginAdd() {
+    setIsAdding(true);
+    setNewTitle("");
+  }
+
+  function handleCreate() {
+    const title = newTitle.trim();
+    if (!title) return;
+    onCreate({ courseOfferingId, title, orderIndex: nextOrderIndex() });
+    setNewTitle("");
+    setIsAdding(false);
+  }
+
+  function handleBulkCreate() {
+    const count = Number(bulkCount);
+    if (!Number.isInteger(count) || count <= 0 || count > 52) return;
+    const start = nextOrderIndex();
+    onBulkCreate(
+      Array.from({ length: count }, (_, index) => {
+        const orderIndex = start + index;
+        return {
+          courseOfferingId,
+          title: `Week ${orderIndex}:`,
+          orderIndex,
+        };
+      }),
+    );
+    setBulkCount("");
+  }
+
+  function beginEdit(module: ModuleDto) {
+    setEditingId(String(module.id));
+    setEditingTitle(module.title);
+  }
+
+  function finishEdit(module: ModuleDto) {
+    const title = editingTitle.trim();
+    if (!title || title === module.title) {
+      setEditingId(null);
+      return;
+    }
+    onUpdate(module.id, { id: module.id, title, orderIndex: module.orderIndex });
+    setEditingId(null);
+  }
+
+  function clearDragState() {
+    setDraggingId(null);
+    setDragOver(null);
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLLIElement>, targetId: ModuleDto["id"]) {
+    event.preventDefault();
+    if (!draggingId || draggingId === String(targetId)) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+    setDragOver({ id: String(targetId), position });
+  }
+
+  function reorderModules(targetId: ModuleDto["id"], position: "before" | "after") {
+    if (!draggingId || draggingId === String(targetId)) {
+      clearDragState();
+      return;
+    }
+
+    const moved = sortedModules.find((module) => String(module.id) === draggingId);
+    if (!moved) {
+      clearDragState();
+      return;
+    }
+
+    const reordered = sortedModules.filter((module) => String(module.id) !== draggingId);
+    const targetIndex = reordered.findIndex((module) => String(module.id) === String(targetId));
+    if (targetIndex < 0) {
+      clearDragState();
+      return;
+    }
+
+    reordered.splice(position === "before" ? targetIndex : targetIndex + 1, 0, moved);
+
+    const updates = reordered
+      .map((module, index) => ({
+        id: module.id,
+        title: module.title,
+        orderIndex: index + 1,
+      }))
+      .filter((module) => {
+        const original = sortedModules.find((candidate) => String(candidate.id) === String(module.id));
+        return original && Number(original.orderIndex) !== Number(module.orderIndex);
+      });
+
+    if (updates.length > 0) onReorder(updates);
+    clearDragState();
+  }
+
+  function renderDragPreview(targetId: ModuleDto["id"], position: "before" | "after") {
+    const draggedModule = sortedModules.find((module) => String(module.id) === draggingId);
+    if (!draggedModule || dragOver?.id !== String(targetId) || dragOver.position !== position) return null;
+    return (
+      <li className="pointer-events-none rounded-xl border border-primary/40 bg-primary/10 p-3 text-primary shadow-sm">
+        <div className="flex items-center gap-3 opacity-80">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold tabular-nums">
+            ↕
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{draggedModule.title}</p>
+            <p className="text-xs text-primary/80">Drop here</p>
+          </div>
+        </div>
+      </li>
+    );
+  }
+
+  const addRow = canManage && isAdding ? (
+    <li className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary tabular-nums">
+          {nextOrderIndex()}
+        </div>
+        <Input
+          value={newTitle}
+          onChange={(event) => setNewTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") handleCreate();
+            if (event.key === "Escape") setIsAdding(false);
+          }}
+          placeholder={`Week ${nextOrderIndex()}:`}
+          autoFocus
+        />
+        <Button size="sm" onClick={handleCreate} disabled={pending || !newTitle.trim()}>
+          Add
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setIsAdding(false)}>
+          Cancel
+        </Button>
+      </div>
+    </li>
+  ) : null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="text-base">Modules</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Drag modules to set attendance order. New modules inherit their order from the list.
+            </p>
+          </div>
+          {canManage ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 rounded-md border bg-background p-1">
+                <Input
+                  className="h-8 w-24 border-0 shadow-none focus-visible:ring-0"
+                  type="number"
+                  min={1}
+                  max={52}
+                  value={bulkCount}
+                  onChange={(event) => setBulkCount(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleBulkCreate();
+                  }}
+                  placeholder="Weeks"
+                  aria-label="Number of modules to create"
+                />
+                <Button size="sm" variant="ghost" onClick={handleBulkCreate} disabled={pending || Number(bulkCount) <= 0}>
+                  Auto-create
+                </Button>
+              </div>
+              <Button size="sm" onClick={beginAdd} disabled={pending || isAdding}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Module
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : sortedModules.length === 0 && !isAdding ? (
+          <EmptyTabState
+            icon={Layers}
+            title="No modules yet"
+            description="Add modules before staff start attendance sessions for this offering."
+            action={canManage ? (
+              <div className="mx-auto inline-flex items-center justify-center gap-2 rounded-md border bg-background p-1">
+                <Input
+                  className="h-8 w-24 border-0 shadow-none focus-visible:ring-0"
+                  type="number"
+                  min={1}
+                  max={52}
+                  value={bulkCount}
+                  onChange={(event) => setBulkCount(event.target.value)}
+                  placeholder="Weeks"
+                  aria-label="Number of modules to create"
+                />
+                <Button size="sm" variant="ghost" onClick={handleBulkCreate} disabled={pending || Number(bulkCount) <= 0}>
+                  Auto-create
+                </Button>
+              </div>
+            ) : null}
+          />
+        ) : (
+          <ul className="grid gap-2">
+            {sortedModules.map((module, index) => {
+              const isEditing = editingId === String(module.id);
+              const count = sessionCount(module);
+              const isDragging = draggingId === String(module.id);
+              return (
+                <Fragment key={String(module.id)}>
+                  {renderDragPreview(module.id, "before")}
+                  <li
+                    key={String(module.id)}
+                    draggable={canManage && !pending}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      setDraggingId(String(module.id));
+                    }}
+                    onDragEnd={clearDragState}
+                    onDragOver={(event) => handleDragOver(event, module.id)}
+                    onDrop={() => reorderModules(module.id, dragOver?.position ?? "before")}
+                    className={cn(
+                      "rounded-xl border bg-card p-3 transition-colors hover:bg-muted/20",
+                      canManage && "cursor-grab active:cursor-grabbing",
+                      isDragging && "h-0 overflow-hidden border-0 p-0 opacity-0",
+                      dragOver?.id === String(module.id) && !isDragging && "border-primary/30",
+                    )}
+                  >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary tabular-nums">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {isEditing ? (
+                        <Input
+                          value={editingTitle}
+                          onChange={(event) => setEditingTitle(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") finishEdit(module);
+                            if (event.key === "Escape") setEditingId(null);
+                          }}
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="text-left font-medium leading-tight hover:text-primary hover:underline underline-offset-4"
+                            onClick={() => beginEdit(module)}
+                          >
+                            {module.title}
+                          </button>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {count} session{count !== 1 ? "s" : ""}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    {canManage ? (
+                      <div className="flex gap-1">
+                        {isEditing ? (
+                          <Button size="sm" onClick={() => finishEdit(module)} disabled={pending || !editingTitle.trim()}>
+                            Save
+                          </Button>
+                        ) : (
+                          <Button size="icon-xs" variant="ghost" onClick={() => beginEdit(module)} aria-label={`Edit ${module.title}`}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          disabled={pending || count > 0}
+                          onClick={() => onDelete(module)}
+                          aria-label={`Delete ${module.title}`}
+                          title={count > 0 ? "Modules with sessions cannot be deleted from the UI." : "Delete module"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                  {count > 0 ? (
+                    <p className="mt-2 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">
+                      This module already has attendance sessions; delete is disabled to protect attendance data.
+                    </p>
+                  ) : null}
+                  </li>
+                  {renderDragPreview(module.id, "after")}
+                </Fragment>
+              );
+            })}
+            {addRow}
+            {canManage && !isAdding && sortedModules.length > 0 ? (
+              <li>
+                <Button variant="outline" className="w-full justify-start border-dashed" onClick={beginAdd} disabled={pending}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add another module
+                </Button>
+              </li>
+            ) : null}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -822,7 +1231,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const currentUserId = user?.id == null ? null : String(user.id);
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const defaultTab = ["matrix", "sections", "staff", "students", "sessions"].includes(
+  const defaultTab = ["modules", "matrix", "sections", "staff", "students", "sessions"].includes(
     requestedTab ?? "",
   )
     ? (requestedTab ?? "matrix")
@@ -846,6 +1255,8 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     useGetApiCourseOfferingStaffs({ courseOfferingId: offeringId });
   const { data: apiSections = [], isLoading: loadingSections } =
     useGetApiSections({ courseOfferingId: offeringId });
+  const { data: apiModules = [], isLoading: loadingModules } =
+    useGetApiModules({ courseOfferingId: offeringId });
   const { data: apiEnrollments = [], isLoading: loadingEnrollments } =
     useGetApiEnrollments({ courseOfferingId: offeringId });
   const { data: apiSessions = [], isLoading: loadingSessions } =
@@ -860,6 +1271,9 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const createSection = usePostApiSections();
   const updateSection = usePutApiSectionsId();
   const deleteSection = useDeleteApiSectionsId();
+  const createModule = usePostApiModules();
+  const updateModule = usePutApiModulesId();
+  const deleteModule = useDeleteApiModulesId();
 
   const header = apiOffering;
   const displayName = header?.courseTitle ?? "Course Offering";
@@ -867,6 +1281,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const displayTerm = header?.termCode ?? "Current term";
 
   const sections = apiSections;
+  const modules = apiModules;
   const matrix = apiMatrix;
   const enrollments = apiEnrollments;
   const staff = apiStaff;
@@ -910,7 +1325,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     if (person.scope === CourseOfferingStaffScope.Offering) return isOfferingOwner;
     return isOfferingOwner || (person.sectionId != null && ownedSectionIds.has(String(person.sectionId)));
   };
-  const { data: apiUsers = [], isLoading: loadingUsers } = useGetApiUsers({ query: { enabled: canManageStaff || hasInstructorAccess } });
+  const { data: apiUsers = [], isLoading: loadingUsers } = useGetApiUsers({ query: { enabled: canManageStaff } });
   const selectedSection =
     activeSectionId === "all"
       ? null
@@ -925,15 +1340,37 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
         (student) => String(student.sectionId) === String(selectedSection.id),
       )
     : enrollments;
+  const matrixModules = modules
+    .map((module) => ({
+      moduleId: module.id,
+      title: module.title,
+      orderIndex: module.orderIndex,
+    }))
+    .sort((a, b) => Number(a.orderIndex) - Number(b.orderIndex));
   const filteredMatrix = matrix
     ? {
         ...matrix,
-        students: selectedSection
+        modules: matrixModules,
+        students: (selectedSection
           ? matrix.students.filter(
               (student) =>
                 String(student.currentSectionId) === String(selectedSection.id),
             )
-          : matrix.students,
+          : matrix.students
+        ).map((student) => {
+          const statusByModuleId = new Map(
+            matrix.modules.map((module, index) => [
+              String(module.moduleId),
+              student.attendanceStatuses[index],
+            ]),
+          );
+          return {
+            ...student,
+            attendanceStatuses: matrixModules.map(
+              (module) => statusByModuleId.get(String(module.moduleId)) ?? "",
+            ),
+          };
+        }),
       }
     : undefined;
   const filteredSessions = selectedSection
@@ -941,9 +1378,16 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
         (session) => String(session.sectionId) === String(selectedSection.id),
       )
     : sessions;
+  const enrollmentByMatrixStudentId = new Map(
+    enrollments.map((student) => [
+      student.userId == null ? String(-Number(student.id)) : String(student.userId),
+      student,
+    ]),
+  );
 
   const enrollmentParams = { courseOfferingId: offeringId };
   const sectionsParams = { courseOfferingId: offeringId };
+  const modulesParams = { courseOfferingId: offeringId };
   const sessionsParams = { courseOfferingId: offeringId };
   const staffParams = { courseOfferingId: offeringId };
   const matrixParams = { courseOfferingId: offeringId };
@@ -954,6 +1398,9 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     });
     queryClient.invalidateQueries({
       queryKey: getGetApiSectionsQueryKey(sectionsParams),
+    });
+    queryClient.invalidateQueries({
+      queryKey: getGetApiModulesQueryKey(modulesParams),
     });
     queryClient.invalidateQueries({
       queryKey: getGetApiSessionsQueryKey(sessionsParams),
@@ -971,8 +1418,11 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
   const enrollmentLoading = loadingEnrollments || loadingSections;
   const sessionsLoading = loadingSessions;
   const sectionsLoading = loadingSections;
+  const modulesLoading = loadingModules;
   const sectionMutationPending =
     createSection.isPending || updateSection.isPending || deleteSection.isPending;
+  const moduleMutationPending =
+    createModule.isPending || updateModule.isPending || deleteModule.isPending;
   const staffMutationPending = assignStaff.isPending || updateStaff.isPending || removeStaff.isPending;
   const pageLoading = loadingOfferings && !apiOffering;
 
@@ -1037,6 +1487,42 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
     await deleteSection.mutateAsync({ id: section.id });
     if (activeSectionId === String(section.id)) setActiveSectionId("all");
     invalidateDetailQueries();
+  }
+
+  async function refreshAfterModuleChange() {
+    invalidateDetailQueries();
+    await queryClient.refetchQueries({
+      queryKey: getGetApiAttendancesMatrixQueryKey(matrixParams),
+    });
+  }
+
+  async function handleCreateModule(module: CreateModuleCommand) {
+    await createModule.mutateAsync({ data: module });
+    await refreshAfterModuleChange();
+  }
+
+  async function handleBulkCreateModules(modulesToCreate: CreateModuleCommand[]) {
+    for (const module of modulesToCreate) {
+      await createModule.mutateAsync({ data: module });
+    }
+    await refreshAfterModuleChange();
+  }
+
+  async function handleUpdateModule(id: ModuleDto["id"], module: UpdateModuleCommand) {
+    await updateModule.mutateAsync({ id, data: module });
+    await refreshAfterModuleChange();
+  }
+
+  async function handleReorderModules(modulesToUpdate: UpdateModuleCommand[]) {
+    for (const module of modulesToUpdate) {
+      await updateModule.mutateAsync({ id: module.id, data: module });
+    }
+    await refreshAfterModuleChange();
+  }
+
+  async function handleDeleteModule(module: ModuleDto) {
+    await deleteModule.mutateAsync({ id: module.id });
+    await refreshAfterModuleChange();
   }
 
   async function handleAssignStaff(assignment: {
@@ -1158,12 +1644,8 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                 value: filteredEnrollments.length,
                 icon: Users,
               },
+              { label: "Modules", value: modules.length, icon: Layers },
               { label: "Staff", value: staff.length, icon: UserCog },
-              {
-                label: "Sessions",
-                value: filteredSessions.length,
-                icon: CalendarCheck,
-              },
               {
                 label: "Attendance",
                 value: `${attendanceRate}%`,
@@ -1224,12 +1706,29 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="flex h-auto flex-wrap justify-start">
+          <TabsTrigger value="modules">Modules</TabsTrigger>
           <TabsTrigger value="matrix">Attendance Matrix</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
           <TabsTrigger value="staff">Assigned Staff</TabsTrigger>
           <TabsTrigger value="students">Enrollment Students</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="modules">
+          <ModuleManager
+            courseOfferingId={offeringId}
+            modules={modules}
+            sessions={sessions}
+            loading={modulesLoading}
+            pending={moduleMutationPending}
+            canManage={hasInstructorAccess}
+            onCreate={handleCreateModule}
+            onBulkCreate={handleBulkCreateModules}
+            onUpdate={handleUpdateModule}
+            onReorder={handleReorderModules}
+            onDelete={handleDeleteModule}
+          />
+        </TabsContent>
 
         <TabsContent value="matrix">
           <Card>
@@ -1244,56 +1743,101 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
               ) : !filteredMatrix ||
                 filteredMatrix.modules.length === 0 ||
                 filteredMatrix.students.length === 0 ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  No attendance data yet.
-                </p>
+                <EmptyTabState
+                  icon={CheckCircle2}
+                  title="No attendance data yet"
+                  description="Attendance appears here after modules, students, and sessions are created."
+                />
               ) : (
-                <div className="rounded-md border">
-                  <Table>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Legend:</span>
+                    {[
+                      [AttendanceStatus.Present, "Present"],
+                      [AttendanceStatus.Late, "Late"],
+                      [AttendanceStatus.Absent, "Absent"],
+                      [AttendanceStatus.Excused, "Excused"],
+                    ].map(([status, label]) => (
+                      <span key={status} className="inline-flex items-center gap-1">
+                        <span
+                          className={cn(
+                            "inline-flex h-5 w-5 items-center justify-center rounded-none text-[10px] font-bold",
+                            STATUS_STYLE[status],
+                          )}
+                        >
+                          {shortStatus(status)}
+                        </span>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table className="w-auto">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="min-w-48">Student</TableHead>
-                        {showSectionColumn && <TableHead>Section</TableHead>}
-                        {filteredMatrix.modules.map((module, index) => (
+                        <TableHead className="min-w-28 border-r">Student ID</TableHead>
+                        <TableHead className="min-w-48 border-r">Student</TableHead>
+                        {showSectionColumn && <TableHead className="border-r">Section</TableHead>}
+                        {filteredMatrix.modules.map((module) => (
                           <TableHead
                             key={String(module.moduleId)}
-                            className="text-center"
+                            className="h-36 w-7 min-w-7 border-x p-0 text-center align-bottom"
                             title={module.title}
                           >
-                            W{index + 1}
+                            <div className="mx-auto flex h-32 w-7 items-end justify-center overflow-hidden pb-2">
+                              <span className="block max-h-30 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium [writing-mode:vertical-rl] rotate-180">
+                                {module.title}
+                              </span>
+                            </div>
                           </TableHead>
                         ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredMatrix.students.map((student) => (
-                        <TableRow key={String(student.studentId)}>
-                          <TableCell className="font-medium">
-                            {student.studentName}
-                          </TableCell>
-                          {showSectionColumn && (
-                            <TableCell>{student.currentSectionName}</TableCell>
-                          )}
-                          {student.attendanceStatuses.map((status, index) => (
-                            <TableCell
-                              key={`${student.studentId}-${filteredMatrix.modules[index]?.moduleId ?? status}`}
-                              className="text-center"
-                            >
-                              <span
-                                className={cn(
-                                  "inline-flex h-6 w-6 items-center justify-center rounded-md border text-[11px] font-bold",
-                                  STATUS_STYLE[status] ??
-                                    "bg-muted text-muted-foreground",
-                                )}
-                              >
-                                {shortStatus(status)}
-                              </span>
+                      {filteredMatrix.students.map((student) => {
+                        const enrollment = enrollmentByMatrixStudentId.get(String(student.studentId));
+                        return (
+                          <TableRow key={String(student.studentId)}>
+                            <TableCell className="h-7 border-r px-2 py-0 font-mono text-xs text-muted-foreground">
+                              <span>{enrollment?.studentNumber ?? student.studentId}</span>
+                              {enrollment && !enrollment.isLinkedUser ? (
+                                <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  pending
+                                </span>
+                              ) : null}
                             </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
+                            <TableCell className="h-7 border-r px-2 py-0 font-medium">
+                              {student.studentName}
+                            </TableCell>
+                            {showSectionColumn && (
+                              <TableCell className="h-7 border-r px-2 py-0">{student.currentSectionName}</TableCell>
+                            )}
+                            {filteredMatrix.modules.map((module, index) => {
+                              const status = student.attendanceStatuses[index] ?? "";
+                              return (
+                                <TableCell
+                                  key={`${student.studentId}-${module.moduleId}`}
+                                  className="h-7 w-7 min-w-7 p-0 text-center"
+                                  title={status || "No attendance recorded"}
+                                >
+                                  <span
+                                    className={cn(
+                                      "flex h-7 w-7 items-center justify-center rounded-none border-0 text-[11px] font-bold",
+                                      STATUS_STYLE[status] ??
+                                        "bg-muted text-muted-foreground",
+                                    )}
+                                  >
+                                    {shortStatus(status)}
+                                  </span>
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
-                  </Table>
+                    </Table>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1335,9 +1879,17 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : staff.length === 0 ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  No staff assigned.
-                </p>
+                <EmptyTabState
+                  icon={UserCog}
+                  title="No staff assigned"
+                  description="Assign course access so instructors and assistants can manage this offering."
+                  action={canManageStaff ? (
+                    <Button size="sm" onClick={() => setStaffDialogOpen(true)} disabled={loadingUsers || staffMutationPending}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Assign first staff
+                    </Button>
+                  ) : null}
+                />
               ) : (
                 <div className="space-y-4">
                   {[CourseOfferingStaffScope.Offering, CourseOfferingStaffScope.Section].map((scope) => {
@@ -1424,9 +1976,23 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredEnrollments.length === 0 ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  No enrolled students.
-                </p>
+                <EmptyTabState
+                  icon={Users}
+                  title="No enrolled students"
+                  description="Add students manually or import an Excel list before taking attendance."
+                  action={hasInstructorAccess ? (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setManualOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add first student
+                      </Button>
+                      <Button size="sm" onClick={() => setBulkEnrollOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import from Excel
+                      </Button>
+                    </div>
+                  ) : null}
+                />
               ) : (
                 <div className="rounded-md border">
                   <Table>
@@ -1499,9 +2065,17 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredSessions.length === 0 ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  No sessions yet.
-                </p>
+                <EmptyTabState
+                  icon={CalendarCheck}
+                  title="No sessions yet"
+                  description="Start an attendance session after modules and sections are ready."
+                  action={hasInstructorAccess ? (
+                    <Button size="sm" onClick={() => router.push("/attendance")}>
+                      <Scan className="mr-2 h-4 w-4" />
+                      Start first session
+                    </Button>
+                  ) : null}
+                />
               ) : (
                 filteredSessions.map((session: SessionDto) => {
                   const isOpen = session.status === "Open";

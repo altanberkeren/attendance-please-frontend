@@ -282,6 +282,7 @@ function SessionSetupStep({
   setSel,
   onNext,
   onBack,
+  onManageModules,
   isLoading,
 }: {
   modules: ModuleDto[];
@@ -291,6 +292,7 @@ function SessionSetupStep({
   setSel: (s: Selection) => void;
   onNext: () => void;
   onBack: () => void;
+  onManageModules?: () => void;
   isLoading?: boolean;
 }) {
   const [showPastModules, setShowPastModules] = useState(false);
@@ -360,6 +362,28 @@ function SessionSetupStep({
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
+
+  if (sortedModules.length === 0) {
+    return (
+      <div className="space-y-5">
+        <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center">
+          <p className="text-sm font-medium">No modules found for this offering</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create course modules before starting attendance sessions.
+          </p>
+          {onManageModules ? (
+            <Button className="mt-4" size="sm" onClick={onManageModules}>
+              Manage Modules
+            </Button>
+          ) : null}
+        </div>
+        <Button variant="ghost" onClick={onBack} className="gap-1.5">
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+    );
+  }
 
   function renderModuleButton(
     module: ModuleDto,
@@ -1192,6 +1216,7 @@ export default function AttendancePage() {
           setSel={setSel}
           onNext={() => setStep("method")}
           onBack={() => setStep("course")}
+          onManageModules={() => router.push(`/course-offerings/detail?id=${encodeURIComponent(String(selectedCourseOfferingId))}&tab=modules`)}
           isLoading={loadingModules || loadingSections || loadingSessions}
         />
       )}
