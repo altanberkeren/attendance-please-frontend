@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AttendanceRoster } from "@/components/attendance-roster";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ import {
   useGetApiSessions,
   usePostApiSessions,
   usePostApiSessionsIdClose,
+  usePostApiSessionsIdScanToken,
 } from "@/lib/api/sessions/sessions";
 
 // ── Backend model types ───────────────────────────────────────────────────────
@@ -693,9 +694,7 @@ function LiveSession({
   isClosing: boolean;
 }) {
   const [ended, setEnded] = useState(false);
-  const [qrToken, setQrToken] = useState(
-    () => `att://session/${backendSessionId}?ts=${Date.now()}`,
-  );
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [newUserIds, setNewUserIds] = useState<Set<string>>(new Set());
   const [studentSearch, setStudentSearch] = useState("");
   const prevAttCountRef = useRef(0);
@@ -703,6 +702,8 @@ function LiveSession({
   const timer = useTimer(!ended);
 
   const { mutateAsync: markAttendance } = usePostApiAttendancesMark();
+  const { mutateAsync: createScanToken, isPending: isCreatingScanToken } =
+    usePostApiSessionsIdScanToken();
 
   // Highlight newly arrived attendees
   useEffect(() => {
@@ -752,18 +753,25 @@ function LiveSession({
     }
   }
 
-  function refreshQR() {
-    setQrToken(`att://session/${backendSessionId}?ts=${Date.now()}`);
-  }
+  const refreshQR = useCallback(async () => {
+    const result = await createScanToken({ id: backendSessionId });
+    setQrUrl(`${window.location.origin}/scan?t=${encodeURIComponent(result.token)}`);
+  }, [backendSessionId, createScanToken]);
+
+  useEffect(() => {
+    if (ended || (sel.method !== "qr" && sel.method !== "qr-wifi")) return;
+
+    void refreshQR();
+    const id = window.setInterval(() => void refreshQR(), 240_000);
+    return () => window.clearInterval(id);
+  }, [ended, refreshQR, sel.method]);
 
   function openQRTab() {
-    const params = new URLSearchParams({
-      t: qrToken,
-      c: offering?.courseCode ?? "",
-      m: selectedModule?.title ?? "",
-      s: section?.name ?? "",
-    });
-    window.open(`/qr?${params}`, "_blank", "noopener");
+    window.open(
+      `/project-qr?id=${encodeURIComponent(String(backendSessionId))}&courseOfferingId=${encodeURIComponent(String(sel.courseId ?? ""))}`,
+      "_blank",
+      "noopener",
+    );
   }
 
   // ── Post-session summary ────────────────────────────────────────────────────
@@ -901,24 +909,30 @@ function LiveSession({
                   <strong className="font-mono ml-1">IUS-Campus</strong>
                 </div>
               )}
-              <div className="p-3.5 rounded-2xl bg-white shadow border">
-                <QRCode
-                  value={qrToken}
-                  size={155}
-                  level="M"
-                />
+              <div className="grid h-[185px] w-[185px] place-items-center rounded-2xl border bg-white p-3.5 shadow">
+                {qrUrl ? (
+                  <QRCode
+                    value={qrUrl}
+                    size={155}
+                    level="M"
+                  />
+                ) : (
+                  <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                )}
               </div>
               <div className="flex items-center gap-4">
                 <button type="button"
-                  onClick={refreshQR}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => void refreshQR()}
+                  disabled={isCreatingScanToken}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                 >
-                  <RefreshCw className="h-3 w-3" />
-                  Refresh
+                  <RefreshCw className={cn("h-3 w-3", isCreatingScanToken && "animate-spin")} />
+                  Refresh secure QR
                 </button>
                 <button type="button"
                   onClick={openQRTab}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                  disabled={!qrUrl}
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Project QR
@@ -1060,9 +1074,7 @@ export default function AttendancePage() {
     moduleId: null,
     method: null,
   });
-  const [backendSessionId, setBackendSessionId] = useState<
-    number | string | null
-  >(null);
+  const [backendSessionId] = useState<number | string | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -1141,8 +1153,7 @@ export default function AttendancePage() {
           openedByUserId: openingUserId,
         },
       });
-      setBackendSessionId(session.id);
-      setStep("live");
+      router.push(`/sessions/detail?id=${encodeURIComponent(String(session.id))}&courseOfferingId=${encodeURIComponent(String(sel.courseId))}`);
     } catch {
       setStartError("Failed to start session. Please check your backend connection.");
     } finally {
@@ -1155,7 +1166,7 @@ export default function AttendancePage() {
     setIsClosing(true);
     try {
       await closeSession({ id: backendSessionId });
-      router.push(`/sessions/detail?id=${encodeURIComponent(String(backendSessionId))}`);
+      router.push(`/sessions/detail?id=${encodeURIComponent(String(backendSessionId))}&courseOfferingId=${encodeURIComponent(String(sel.courseId ?? ""))}`);
     } finally {
       setIsClosing(false);
     }

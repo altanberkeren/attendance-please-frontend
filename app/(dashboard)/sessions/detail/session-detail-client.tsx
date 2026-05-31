@@ -15,12 +15,13 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AttendanceRoster } from "@/components/attendance-roster";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGetApiAttendancesSessionSessionId } from "@/lib/api/attendances/attendances";
+import { useGetApiCourseOfferingsId } from "@/lib/api/course-offerings/course-offerings";
 import { useGetApiEnrollments } from "@/lib/api/enrollments/enrollments";
 import type { SessionDto } from "@/lib/api/model";
 import { AttendanceMethod, AttendanceStatus } from "@/lib/api/model";
@@ -28,6 +29,7 @@ import { useGetApiModulesId } from "@/lib/api/modules/modules";
 import {
   useGetApiSessionsId,
   usePostApiSessionsIdClose,
+  usePostApiSessionsIdScanToken,
 } from "@/lib/api/sessions/sessions";
 import { cn } from "@/lib/utils";
 
@@ -77,21 +79,31 @@ function textColor(v: number) {
       : "text-destructive";
 }
 
-function SessionDetail({ session }: { session: SessionDto }) {
+function SessionDetail({
+  session,
+  projectQr = false,
+}: {
+  session: SessionDto;
+  projectQr?: boolean;
+}) {
   const router = useRouter();
   const duration = calcDuration(session.openedAt, session.closedAt);
   const isOpen = session.status === "Open";
-  const [qrToken, setQrToken] = useState(
-    () => `att://session/${session.id}?ts=${Date.now()}`,
-  );
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const { mutateAsync: closeSession, isPending: isClosing } =
     usePostApiSessionsIdClose();
+  const { mutateAsync: createScanToken, isPending: isCreatingScanToken } =
+    usePostApiSessionsIdScanToken();
 
   const { data: attendances = [], isLoading: loadingAtt } =
     useGetApiAttendancesSessionSessionId(session.id, {
       query: { refetchInterval: isOpen ? 3000 : false },
     });
   const { data: moduleData } = useGetApiModulesId(session.moduleId);
+  const { data: offering } = useGetApiCourseOfferingsId(
+    moduleData?.courseOfferingId ?? "",
+    { query: { enabled: !!moduleData?.courseOfferingId } },
+  );
   const { data: enrollments = [], isLoading: loadingEnroll } =
     useGetApiEnrollments(
       { courseOfferingId: moduleData?.courseOfferingId },
@@ -124,34 +136,89 @@ function SessionDetail({ session }: { session: SessionDto }) {
     markedAt: attendance.recordedAt ?? undefined,
   }));
 
-  const absentList = sectionEnrollments
-    .filter((enrollment) => !presentIds.has(String(enrollment.userId)))
-    .map((enrollment) => ({
-      id: enrollment.userId!,
-      name: enrollment.userName,
-      studentId: String(enrollment.userId),
-    }));
+  const absentList = sectionEnrollments.flatMap((enrollment) => {
+    if (enrollment.userId == null || presentIds.has(String(enrollment.userId))) {
+      return [];
+    }
+
+    return [
+      {
+        id: enrollment.userId,
+        name: enrollment.userName,
+        studentId: String(enrollment.userId),
+      },
+    ];
+  });
 
   const total = presentList.length + absentList.length;
   const pct = total > 0 ? Math.round((presentList.length / total) * 100) : 0;
   const isLoading = loadingAtt || loadingEnroll;
 
-  function refreshQR() {
-    setQrToken(`att://session/${session.id}?ts=${Date.now()}`);
-  }
+  const refreshQR = useCallback(async () => {
+    const result = await createScanToken({ id: session.id });
+    const origin = window.location.origin;
+    setQrUrl(`${origin}/scan?t=${encodeURIComponent(result.token)}`);
+  }, [createScanToken, session.id]);
+
+  useEffect(() => {
+    if (isOpen && (session.selectedMethod === AttendanceMethod.Qr || session.selectedMethod === AttendanceMethod.QrWifi)) {
+      void refreshQR();
+      const id = window.setInterval(() => void refreshQR(), 240_000);
+      return () => window.clearInterval(id);
+    }
+  }, [isOpen, refreshQR, session.selectedMethod]);
 
   function openQRTab() {
-    const params = new URLSearchParams({
-      t: qrToken,
-      m: session.moduleTitle,
-      s: session.sectionName ?? "",
-    });
-    window.open(`/qr?${params}`, "_blank", "noopener");
+    window.open(
+      `/project-qr?id=${encodeURIComponent(String(session.id))}&courseOfferingId=${encodeURIComponent(String(moduleData?.courseOfferingId ?? ""))}`,
+      "_blank",
+      "noopener",
+    );
   }
 
   async function handleEndSession() {
     await closeSession({ id: session.id });
     router.refresh();
+  }
+
+  if (projectQr) {
+    const qrSize = 460;
+    return (
+      <main className="relative grid min-h-[100dvh] overflow-hidden bg-[#050505] text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.12),transparent_30%),radial-gradient(circle_at_8%_8%,rgba(34,197,94,0.18),transparent_28%),radial-gradient(circle_at_92%_86%,rgba(59,130,246,0.16),transparent_32%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,0.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.8)_1px,transparent_1px)] [background-size:64px_64px]" />
+
+        <section className="relative z-10 grid min-h-[100dvh] place-items-center p-8">
+          <div className="flex flex-col items-center gap-8">
+            <div className="rounded-[2rem] border border-white/10 bg-white p-7 shadow-[0_40px_140px_rgba(0,0,0,0.85),0_0_80px_rgba(255,255,255,0.10)]">
+              {qrUrl ? (
+                <QRCode value={qrUrl} size={qrSize} level="M" />
+              ) : (
+                <div className="grid h-[460px] w-[460px] place-items-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-zinc-500" />
+                </div>
+              )}
+            </div>
+
+            <div className="max-w-5xl text-center">
+              <div className="mb-3 font-mono text-2xl font-black uppercase tracking-[0.22em] text-white">
+                {offering?.courseCode ?? "Course"}
+              </div>
+              <div className="text-4xl font-semibold tracking-tight text-white/90">
+                {session.moduleTitle}
+              </div>
+              {session.sectionName ? (
+                <div className="mt-3 text-2xl text-white/55">{session.sectionName}</div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-5 py-2 font-mono text-xs uppercase tracking-[0.28em] text-white/45 backdrop-blur">
+            Scan to mark attendance
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -242,24 +309,30 @@ function SessionDetail({ session }: { session: SessionDto }) {
                         <strong className="ml-1 font-mono">IUS-Campus</strong>
                       </div>
                     )}
-                    <div className="rounded-2xl border bg-white p-3.5 shadow">
-                      <QRCode
-                        value={qrToken}
-                        size={155}
-                        level="M"
-                      />
+                    <div className="grid h-[185px] w-[185px] place-items-center rounded-2xl border bg-white p-3.5 shadow">
+                      {qrUrl ? (
+                        <QRCode
+                          value={qrUrl}
+                          size={155}
+                          level="M"
+                        />
+                      ) : (
+                        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <button type="button"
-                        onClick={refreshQR}
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        onClick={() => void refreshQR()}
+                        disabled={isCreatingScanToken}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                       >
-                        <RefreshCw className="h-3 w-3" />
-                        Refresh
+                        <RefreshCw className={cn("h-3 w-3", isCreatingScanToken && "animate-spin")} />
+                        Refresh secure QR
                       </button>
                       <button type="button"
                         onClick={openQRTab}
-                        className="flex items-center gap-1.5 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                        disabled={!qrUrl}
+                        className="flex items-center gap-1.5 text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:opacity-50"
                       >
                         <ExternalLink className="h-3 w-3" />
                         Project QR
@@ -367,7 +440,13 @@ function SessionDetail({ session }: { session: SessionDto }) {
   );
 }
 
-export function SessionDetailClient({ id }: { id: string }) {
+export function SessionDetailClient({
+  id,
+  projectQr = false,
+}: {
+  id: string;
+  projectQr?: boolean;
+}) {
   const router = useRouter();
   const { data: session, isLoading } = useGetApiSessionsId(id);
 
@@ -394,5 +473,5 @@ export function SessionDetailClient({ id }: { id: string }) {
     );
   }
 
-  return <SessionDetail session={session} />;
+  return <SessionDetail session={session} projectQr={projectQr} />;
 }

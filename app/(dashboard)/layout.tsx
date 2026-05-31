@@ -2,7 +2,7 @@
 
 import { Loader2, Moon, Sun } from "lucide-react";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -43,6 +43,7 @@ const ROUTE_LABELS: Record<string, string> = {
 
 function useBreadcrumbs() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const segments = pathname.split("/").filter(Boolean);
 
   if (segments.length === 0) return [];
@@ -56,7 +57,12 @@ function useBreadcrumbs() {
     const label =
       ROUTE_LABELS[running] ??
       seg.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-    crumbs.push({ label, href: running, isLast });
+    const courseOfferingId = searchParams.get("courseOfferingId");
+    const href =
+      running === "/sessions" && courseOfferingId
+        ? `/course-offerings/detail?id=${encodeURIComponent(courseOfferingId)}&tab=sessions`
+        : running;
+    crumbs.push({ label, href, isLast });
   });
 
   return crumbs;
@@ -109,6 +115,8 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isProjectQr = pathname === "/sessions/detail" && searchParams.get("projectQr") === "1";
   const { isAuthenticated, isReady, user } = useAuth();
 
   useEffect(() => {
@@ -146,6 +154,10 @@ export default function DashboardLayout({
 
   if (!isAuthenticated || !canAccessDashboardRoute(pathname, user)) {
     return null;
+  }
+
+  if (isProjectQr) {
+    return <>{children}</>;
   }
 
   return (

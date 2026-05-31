@@ -34,7 +34,7 @@ function isSessionLike(value: unknown): value is BackendAuthSession {
 export function getAuthSession(): BackendAuthSession | null {
   if (!isBrowser()) return null
 
-  const raw = window.sessionStorage.getItem(SESSION_KEY)
+  const raw = window.localStorage.getItem(SESSION_KEY)
   if (!raw) return null
 
   try {
@@ -55,12 +55,12 @@ export function getAuthSession(): BackendAuthSession | null {
 
 export function setAuthSession(session: BackendAuthSession) {
   if (!isBrowser()) return
-  window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session))
 }
 
 export function clearAuthSession() {
   if (!isBrowser()) return
-  window.sessionStorage.removeItem(SESSION_KEY)
+  window.localStorage.removeItem(SESSION_KEY)
 }
 
 export function getAuthUser(): BackendAuthUser | null {

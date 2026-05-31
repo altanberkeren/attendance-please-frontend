@@ -976,7 +976,7 @@ function StaffOfferingDetail({ offeringId }: { offeringId: string }) {
                       type="button"
                       onClick={() =>
                         router.push(
-                          `/sessions/detail?id=${encodeURIComponent(String(session.id))}`,
+                          `/sessions/detail?id=${encodeURIComponent(String(session.id))}&courseOfferingId=${encodeURIComponent(String(offeringId))}`,
                         )
                       }
                       className="w-full rounded-lg border p-4 text-left transition-all hover:border-primary/40 hover:bg-muted/30 hover:shadow-sm"

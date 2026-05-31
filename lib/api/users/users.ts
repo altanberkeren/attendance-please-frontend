@@ -207,7 +207,7 @@ export function useGetApiUsersId<TData = Awaited<ReturnType<typeof getApiUsersId
 
 export const putApiUsersIdRoles = (
     id: number | string,
-    updateUserRolesCommand?: UpdateUserRolesCommand,
+    updateUserRolesCommand: UpdateUserRolesCommand,
  signal?: AbortSignal
 ) => {
 
@@ -223,8 +223,8 @@ export const putApiUsersIdRoles = (
 
 
 export const getPutApiUsersIdRolesMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiUsersIdRoles>>, TError,{id: number | string;data?: UpdateUserRolesCommand}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof putApiUsersIdRoles>>, TError,{id: number | string;data?: UpdateUserRolesCommand}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiUsersIdRoles>>, TError,{id: number | string;data: UpdateUserRolesCommand}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof putApiUsersIdRoles>>, TError,{id: number | string;data: UpdateUserRolesCommand}, TContext> => {
 
 const mutationKey = ['putApiUsersIdRoles'];
 const {mutation: mutationOptions} = options ?
@@ -236,7 +236,7 @@ const {mutation: mutationOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiUsersIdRoles>>, {id: number | string;data?: UpdateUserRolesCommand}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putApiUsersIdRoles>>, {id: number | string;data: UpdateUserRolesCommand}> = (props) => {
           const {id,data} = props ?? {};
 
           return  putApiUsersIdRoles(id,data,)
@@ -250,15 +250,15 @@ const {mutation: mutationOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PutApiUsersIdRolesMutationResult = NonNullable<Awaited<ReturnType<typeof putApiUsersIdRoles>>>
-    export type PutApiUsersIdRolesMutationBody = UpdateUserRolesCommand | undefined
+    export type PutApiUsersIdRolesMutationBody = UpdateUserRolesCommand
     export type PutApiUsersIdRolesMutationError = unknown
 
     export const usePutApiUsersIdRoles = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiUsersIdRoles>>, TError,{id: number | string;data?: UpdateUserRolesCommand}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putApiUsersIdRoles>>, TError,{id: number | string;data: UpdateUserRolesCommand}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putApiUsersIdRoles>>,
         TError,
-        {id: number | string;data?: UpdateUserRolesCommand},
+        {id: number | string;data: UpdateUserRolesCommand},
         TContext
       > => {
       return useMutation(getPutApiUsersIdRolesMutationOptions(options), queryClient);

@@ -340,7 +340,7 @@ export function StaffOverview() {
                         key={String(session.id)}
                         onClick={() =>
                           router.push(
-                            `/sessions/detail?id=${encodeURIComponent(String(session.id))}`,
+                            `/sessions/detail?id=${encodeURIComponent(String(session.id))}${session.course?.id ? `&courseOfferingId=${encodeURIComponent(String(session.course.id))}` : ""}`,
                           )
                         }
                         className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"

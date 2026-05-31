@@ -24,6 +24,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreateSessionScanTokenResult,
   GetApiSessionsParams,
   OpenSessionCommand,
   SessionDto
@@ -178,7 +179,62 @@ export function useGetApiSessions<TData = Awaited<ReturnType<typeof getApiSessio
 
 
 
-export const postApiSessionsIdClose = (
+export const postApiSessionsIdScanToken = (
+    id: number | string,
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<CreateSessionScanTokenResult>(
+      {url: `/api/Sessions/${id}/scan-token`, method: 'POST', signal
+    },
+      );
+    }
+
+
+
+export const getPostApiSessionsIdScanTokenMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiSessionsIdScanToken>>, TError,{id: number | string}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiSessionsIdScanToken>>, TError,{id: number | string}, TContext> => {
+
+const mutationKey = ['postApiSessionsIdScanToken'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiSessionsIdScanToken>>, {id: number | string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  postApiSessionsIdScanToken(id,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiSessionsIdScanTokenMutationResult = NonNullable<Awaited<ReturnType<typeof postApiSessionsIdScanToken>>>
+
+    export type PostApiSessionsIdScanTokenMutationError = unknown
+
+    export const usePostApiSessionsIdScanToken = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiSessionsIdScanToken>>, TError,{id: number | string}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postApiSessionsIdScanToken>>,
+        TError,
+        {id: number | string},
+        TContext
+      > => {
+      return useMutation(getPostApiSessionsIdScanTokenMutationOptions(options), queryClient);
+    }
+    export const postApiSessionsIdClose = (
     id: number | string,
  signal?: AbortSignal
 ) => {

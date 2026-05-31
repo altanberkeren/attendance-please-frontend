@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5055/"
+      "url": "http://localhost:5188/"
     }
   ],
   "paths": {
@@ -59,6 +59,44 @@
         }
       }
     },
+    "/api/Attendances/scan/preview": {
+      "get": {
+        "tags": [
+          "Attendances"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanPreviewDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanPreviewDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanPreviewDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Attendances/scan": {
       "post": {
         "tags": [
@@ -68,17 +106,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StudentScanAttendanceCommand"
+                "$ref": "#/components/schemas/StudentScanAttendanceRequest"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/StudentScanAttendanceCommand"
+                "$ref": "#/components/schemas/StudentScanAttendanceRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/StudentScanAttendanceCommand"
+                "$ref": "#/components/schemas/StudentScanAttendanceRequest"
               }
             }
           },
@@ -1986,6 +2024,50 @@
         }
       }
     },
+    "/api/Sessions/{id}/scan-token": {
+      "post": {
+        "tags": [
+          "Sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionScanTokenResult"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionScanTokenResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionScanTokenResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Sessions/{id}/close": {
       "post": {
         "tags": [
@@ -2453,7 +2535,8 @@
                 "$ref": "#/components/schemas/UpdateUserRolesCommand"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -3089,6 +3172,22 @@
           }
         }
       },
+      "CreateSessionScanTokenResult": {
+        "required": [
+          "token",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CreateTermCommand": {
         "required": [
           "name",
@@ -3559,10 +3658,67 @@
           }
         }
       },
+      "ScanPreviewDto": {
+        "required": [
+          "courseCode",
+          "courseTitle",
+          "moduleTitle",
+          "sectionName",
+          "openedByUserName",
+          "openedAt",
+          "status",
+          "selectedMethod",
+          "canSign",
+          "alreadyRecorded",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "courseCode": {
+            "type": "string"
+          },
+          "courseTitle": {
+            "type": "string"
+          },
+          "moduleTitle": {
+            "type": "string"
+          },
+          "sectionName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openedByUserName": {
+            "type": "string"
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SessionStatus"
+          },
+          "selectedMethod": {
+            "$ref": "#/components/schemas/AttendanceMethod"
+          },
+          "canSign": {
+            "type": "boolean"
+          },
+          "alreadyRecorded": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "ScanResult": {
         "required": [
           "attendanceId",
           "sectionSwitched",
+          "alreadyRecorded",
+          "success",
           "message"
         ],
         "type": "object",
@@ -3576,6 +3732,12 @@
             "format": "int32"
           },
           "sectionSwitched": {
+            "type": "boolean"
+          },
+          "alreadyRecorded": {
+            "type": "boolean"
+          },
+          "success": {
             "type": "boolean"
           },
           "message": {
@@ -3808,32 +3970,14 @@
           }
         }
       },
-      "StudentScanAttendanceCommand": {
+      "StudentScanAttendanceRequest": {
         "required": [
-          "sessionId",
-          "studentUserId",
-          "method"
+          "token"
         ],
         "type": "object",
         "properties": {
-          "sessionId": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "studentUserId": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "method": {
-            "$ref": "#/components/schemas/AttendanceMethod"
+          "token": {
+            "type": "string"
           }
         }
       },

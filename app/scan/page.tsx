@@ -1,19 +1,32 @@
 "use client";
 
-import { CheckCircle2, Loader2, QrCode, ShieldAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  LockKeyhole,
+  QrCode,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import { usePostApiAttendancesScan } from "@/lib/api/attendances/attendances";
-import { AttendanceMethod } from "@/lib/api/model/attendanceMethod";
-import { useGetApiSessionsId } from "@/lib/api/sessions/sessions";
+import {
+  useGetApiAttendancesScanPreview,
+  usePostApiAttendancesScan,
+} from "@/lib/api/attendances/attendances";
+import { SessionStatus } from "@/lib/api/model";
 import {
   extractStudentIdFromEmail,
   getUniversityAccountType,
 } from "@/lib/auth/university-account";
+import { cn } from "@/lib/utils";
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -30,20 +43,59 @@ function getErrorMessage(error: unknown): string {
   return "Attendance check-in failed.";
 }
 
+function StepShell({
+  number,
+  title,
+  icon,
+  state,
+  titleClassName,
+  children,
+}: {
+  number: number;
+  title?: ReactNode;
+  titleClassName?: string;
+  icon: ReactNode;
+  state: "done" | "current" | "locked" | "error";
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative grid grid-cols-[2.75rem_1fr] gap-3">
+      {number < 3 ? (
+        <div className="absolute left-[1.35rem] top-11 h-[calc(100%-1.75rem)] w-px bg-border" />
+      ) : null}
+      <div
+        className={cn(
+          "relative z-10 grid h-11 w-11 place-items-center rounded-full border text-sm font-bold shadow-sm",
+          state === "done" && "border-emerald-500 bg-emerald-500 text-white",
+          state === "current" && "border-primary bg-primary text-primary-foreground",
+          state === "locked" && "border-border bg-muted text-muted-foreground",
+          state === "error" && "border-destructive bg-destructive text-destructive-foreground",
+        )}
+      >
+        {state === "done" ? <CheckCircle2 className="h-5 w-5" /> : number}
+      </div>
+      <Card className="overflow-hidden">
+        <CardContent className="p-4">
+          {title ? (
+            <div className="mb-3 flex items-center gap-2">
+              <div className="text-muted-foreground">{icon}</div>
+              <h2 className={cn("font-semibold tracking-tight", titleClassName)}>{title}</h2>
+            </div>
+          ) : null}
+          {children}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function ScanPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const token = searchParams.get("t") ?? "";
   const { isAuthenticated, isReady, isExchanging, signIn, user } = useAuth();
   const [message, setMessage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-
-  const sessionIdParam =
-    searchParams.get("sessionId") ?? searchParams.get("session") ?? "";
-  const parsedSessionId = Number.parseInt(sessionIdParam, 10);
-  const sessionId =
-    Number.isFinite(parsedSessionId) && parsedSessionId > 0
-      ? parsedSessionId
-      : null;
 
   const returnTo = useMemo(() => {
     const query = searchParams.toString();
@@ -53,36 +105,48 @@ export default function ScanPage() {
   const accountType = getUniversityAccountType(user?.email ?? "");
   const studentId = extractStudentIdFromEmail(user?.email ?? "");
 
-  const sessionQuery = useGetApiSessionsId(sessionId ?? 0, {
-    query: { enabled: isAuthenticated && !!sessionId },
-  });
+  const previewQuery = useGetApiAttendancesScanPreview(
+    { token },
+    { query: { enabled: !!token } },
+  );
 
   const scanMutation = usePostApiAttendancesScan();
+  const preview = previewQuery.data;
+  const courseHeading = preview
+    ? [preview.courseCode, preview.courseTitle].filter(Boolean).join(" · ") ||
+      preview.moduleTitle ||
+      "Class information"
+    : "Class information";
+  const canUseIdentity = isReady && isAuthenticated && accountType === "student";
+  const attendanceDone = submitted || !!preview?.alreadyRecorded;
+  const canSign = !!token && !!preview?.canSign && canUseIdentity && !attendanceDone;
+  const infoState = !token || (preview && !preview.canSign && !preview.alreadyRecorded && preview.status !== SessionStatus.Open)
+    ? "error"
+    : "done";
+  const identityState = canUseIdentity
+    ? "done"
+    : preview?.canSign
+      ? "current"
+      : "locked";
+  const signState = attendanceDone ? "done" : canSign ? "current" : "locked";
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    if (canUseIdentity && token) {
+      void previewQuery.refetch();
+    }
+  }, [canUseIdentity, previewQuery.refetch, token]);
+
+  async function handleSign() {
     setMessage(null);
 
-    if (!sessionId) {
+    if (!token) {
       setMessage("Invalid QR link. Ask your instructor for a fresh code.");
       return;
     }
 
-    if (!user) {
-      setMessage("Sign in first, then submit attendance.");
-      return;
-    }
-
     try {
-      const result = await scanMutation.mutateAsync({
-        data: {
-          sessionId,
-          studentUserId: user.id,
-          method: AttendanceMethod.Qr,
-        },
-      });
-
-      setSubmitted(true);
+      const result = await scanMutation.mutateAsync({ data: { token } });
+      setSubmitted(result.success);
       setMessage(result.message || "Attendance submitted successfully.");
     } catch (error) {
       setMessage(getErrorMessage(error));
@@ -90,161 +154,162 @@ export default function ScanPage() {
   }
 
   return (
-    <main className="min-h-screen bg-muted/30 p-4 sm:p-8">
-      <div className="mx-auto max-w-xl space-y-4">
-        <div className="space-y-1 text-center">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-            <QrCode className="h-6 w-6" />
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.13),_transparent_34rem),linear-gradient(180deg,_hsl(var(--background)),_hsl(var(--muted)/0.45))] px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-xl space-y-5">
+        <header className="space-y-3 text-center">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border bg-background shadow-sm">
+            <QrCode className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Attendance Check-In
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Open this page from a classroom QR code.
-          </p>
-        </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+              AttendancePlease
+            </p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">
+              Check in to class
+            </h1>
+          </div>
+        </header>
 
-        {!sessionId ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ShieldAlert className="h-4 w-4" /> Invalid QR link
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>This page needs a valid session ID, for example:</p>
-              <code className="block rounded bg-muted p-2 text-xs">
-                /scan?sessionId=123
-              </code>
-              <Link href="/qr" className="underline">
-                Open the QR test page
-              </Link>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {!isReady ? (
-          <Card>
-            <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Preparing secure
-              sign-in...
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {isReady && !isAuthenticated ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Sign in to continue</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Use your IUS Microsoft student account. After sign-in, you will
-                return to this QR session.
-              </p>
-              <Button className="w-full" onClick={() => signIn(returnTo)}>
-                Sign in with Microsoft
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {isExchanging ? (
-          <Card>
-            <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Completing backend
-              sign-in...
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {isReady && isAuthenticated && accountType !== "student" ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Student account required
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>
-                Attendance QR submission is limited to{" "}
-                <code>@student.ius.edu.ba</code> accounts.
-              </p>
-              <p>Signed in as: {user?.email}</p>
-              <Link href="/overview" className="underline">
-                Go to dashboard
-              </Link>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {isReady &&
-        isAuthenticated &&
-        accountType === "student" &&
-        sessionId ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Confirm attendance</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border bg-background p-3 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">Session</span>
-                  <span className="font-medium">#{sessionId}</span>
-                </div>
-                {sessionQuery.data ? (
-                  <>
-                    <div className="mt-2 flex justify-between gap-3">
-                      <span className="text-muted-foreground">Module</span>
-                      <span className="text-right font-medium">
-                        {sessionQuery.data.moduleTitle}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex justify-between gap-3">
-                      <span className="text-muted-foreground">Status</span>
-                      <span className="font-medium">
-                        {sessionQuery.data.status}
-                      </span>
-                    </div>
-                  </>
-                ) : null}
+        <div className="space-y-4">
+          <StepShell
+            number={1}
+            title={courseHeading}
+            titleClassName="text-2xl font-black leading-tight sm:text-3xl"
+            icon={<QrCode className="h-4 w-4" />}
+            state={infoState}
+          >
+            {!token ? (
+              <div className="flex gap-2 text-sm text-destructive">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>This QR link is missing its secure token.</p>
               </div>
+            ) : previewQuery.isLoading ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading class information…
+              </p>
+            ) : preview ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-base font-semibold text-muted-foreground">
+                    {preview.moduleTitle}
+                  </p>
+                  {preview.sectionName ? (
+                    <p className="text-sm text-muted-foreground/80">
+                      {preview.sectionName}
+                    </p>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {preview.openedByUserName || "Instructor"} · opened {new Date(preview.openedAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+                <Badge
+                  variant={preview.status === SessionStatus.Open ? "default" : "secondary"}
+                  className="gap-1.5"
+                >
+                  <Clock3 className="h-3.5 w-3.5" />
+                  {preview.message}
+                </Badge>
+              </div>
+            ) : (
+              <p className="text-sm text-destructive">
+                Could not read this QR code. Ask your instructor to refresh it.
+              </p>
+            )}
+          </StepShell>
 
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-                <p className="font-medium">{user?.displayName}</p>
+          <StepShell
+            number={2}
+            title="Identity"
+            icon={<UserRound className="h-4 w-4" />}
+            state={identityState}
+          >
+            {!isReady ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Preparing secure sign-in…
+              </p>
+            ) : !isAuthenticated ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Use your IUS Microsoft student account. You will return to this check-in after signing in.
+                </p>
+                <Button className="w-full" onClick={() => signIn(returnTo)}>
+                  Sign in with Microsoft
+                </Button>
+              </div>
+            ) : isExchanging ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Completing backend sign-in…
+              </p>
+            ) : accountType !== "student" ? (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Student account required</p>
+                <p>Signed in as {user?.email}</p>
+                <Link href="/overview" className="underline">
+                  Go to dashboard
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-xl border bg-muted/35 p-3 text-sm">
+                <p className="font-semibold">{user?.displayName}</p>
                 <p className="text-muted-foreground">{user?.email}</p>
                 {studentId ? (
-                  <p className="text-muted-foreground">
-                    Student ID: {studentId}
-                  </p>
+                  <p className="text-muted-foreground">Student ID: {studentId}</p>
                 ) : null}
               </div>
+            )}
+          </StepShell>
 
-              <form onSubmit={handleSubmit}>
-                <Button
-                  className="w-full"
-                  type="submit"
-                  disabled={scanMutation.isPending || submitted}
-                >
-                  {scanMutation.isPending
-                    ? "Submitting..."
-                    : submitted
-                      ? "Attendance submitted"
-                      : "Sign attendance"}
-                </Button>
-              </form>
-
+          <StepShell
+            number={3}
+            title="Sign"
+            icon={<ShieldCheck className="h-4 w-4" />}
+            state={signState}
+          >
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {attendanceDone
+                  ? "You are checked in. You can close this page."
+                  : canSign
+                    ? "Everything is ready. Sign now to record your attendance."
+                    : "Complete the previous steps before signing attendance."}
+              </p>
+              <Button
+                className="w-full gap-2"
+                onClick={() => void handleSign()}
+                disabled={!canSign || scanMutation.isPending || attendanceDone}
+              >
+                {scanMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : attendanceDone ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <LockKeyhole className="h-4 w-4" />
+                )}
+                {scanMutation.isPending
+                  ? "Signing…"
+                  : attendanceDone
+                    ? "Attendance signed"
+                    : "Sign attendance"}
+              </Button>
               {message ? (
-                <p className="flex items-start gap-2 text-sm text-muted-foreground">
-                  {submitted ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-green-600" />
+                <p
+                  className={cn(
+                    "flex items-start gap-2 text-sm",
+                    attendanceDone ? "text-emerald-600" : "text-muted-foreground",
+                  )}
+                >
+                  {attendanceDone ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4" />
                   ) : null}
                   <span>{message}</span>
                 </p>
               ) : null}
-            </CardContent>
-          </Card>
-        ) : null}
+            </div>
+          </StepShell>
+        </div>
       </div>
     </main>
   );

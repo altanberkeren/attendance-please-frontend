@@ -28,10 +28,12 @@ import type {
   AttendanceMatrixResult,
   GetApiAttendancesMatrixParams,
   GetApiAttendancesOverviewParams,
+  GetApiAttendancesScanPreviewParams,
   MarkAttendanceCommand,
+  ScanPreviewDto,
   ScanResult,
   StudentAttendanceOverview,
-  StudentScanAttendanceCommand
+  StudentScanAttendanceRequest
 } from '../model';
 
 import { customInstance } from '../../axios-instance';
@@ -96,8 +98,95 @@ const {mutation: mutationOptions} = options ?
       > => {
       return useMutation(getPostApiAttendancesMarkMutationOptions(options), queryClient);
     }
-    export const postApiAttendancesScan = (
-    studentScanAttendanceCommand: StudentScanAttendanceCommand,
+    export const getApiAttendancesScanPreview = (
+    params?: GetApiAttendancesScanPreviewParams,
+ signal?: AbortSignal
+) => {
+
+
+      return customInstance<ScanPreviewDto>(
+      {url: `/api/Attendances/scan/preview`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+
+
+
+
+export const getGetApiAttendancesScanPreviewQueryKey = (params?: GetApiAttendancesScanPreviewParams,) => {
+    return [
+    `/api/Attendances/scan/preview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetApiAttendancesScanPreviewQueryOptions = <TData = Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError = unknown>(params?: GetApiAttendancesScanPreviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiAttendancesScanPreviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>> = ({ signal }) => getApiAttendancesScanPreview(params, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetApiAttendancesScanPreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>>
+export type GetApiAttendancesScanPreviewQueryError = unknown
+
+
+export function useGetApiAttendancesScanPreview<TData = Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError = unknown>(
+ params: undefined |  GetApiAttendancesScanPreviewParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAttendancesScanPreview>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAttendancesScanPreview>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAttendancesScanPreview<TData = Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError = unknown>(
+ params?: GetApiAttendancesScanPreviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiAttendancesScanPreview>>,
+          TError,
+          Awaited<ReturnType<typeof getApiAttendancesScanPreview>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetApiAttendancesScanPreview<TData = Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError = unknown>(
+ params?: GetApiAttendancesScanPreviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetApiAttendancesScanPreview<TData = Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError = unknown>(
+ params?: GetApiAttendancesScanPreviewParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAttendancesScanPreview>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetApiAttendancesScanPreviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+export const postApiAttendancesScan = (
+    studentScanAttendanceRequest: StudentScanAttendanceRequest,
  signal?: AbortSignal
 ) => {
 
@@ -105,7 +194,7 @@ const {mutation: mutationOptions} = options ?
       return customInstance<ScanResult>(
       {url: `/api/Attendances/scan`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: studentScanAttendanceCommand, signal
+      data: studentScanAttendanceRequest, signal
     },
       );
     }
@@ -113,8 +202,8 @@ const {mutation: mutationOptions} = options ?
 
 
 export const getPostApiAttendancesScanMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAttendancesScan>>, TError,{data: StudentScanAttendanceCommand}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof postApiAttendancesScan>>, TError,{data: StudentScanAttendanceCommand}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAttendancesScan>>, TError,{data: StudentScanAttendanceRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiAttendancesScan>>, TError,{data: StudentScanAttendanceRequest}, TContext> => {
 
 const mutationKey = ['postApiAttendancesScan'];
 const {mutation: mutationOptions} = options ?
@@ -126,7 +215,7 @@ const {mutation: mutationOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiAttendancesScan>>, {data: StudentScanAttendanceCommand}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiAttendancesScan>>, {data: StudentScanAttendanceRequest}> = (props) => {
           const {data} = props ?? {};
 
           return  postApiAttendancesScan(data,)
@@ -140,15 +229,15 @@ const {mutation: mutationOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PostApiAttendancesScanMutationResult = NonNullable<Awaited<ReturnType<typeof postApiAttendancesScan>>>
-    export type PostApiAttendancesScanMutationBody = StudentScanAttendanceCommand
+    export type PostApiAttendancesScanMutationBody = StudentScanAttendanceRequest
     export type PostApiAttendancesScanMutationError = unknown
 
     export const usePostApiAttendancesScan = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAttendancesScan>>, TError,{data: StudentScanAttendanceCommand}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAttendancesScan>>, TError,{data: StudentScanAttendanceRequest}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postApiAttendancesScan>>,
         TError,
-        {data: StudentScanAttendanceCommand},
+        {data: StudentScanAttendanceRequest},
         TContext
       > => {
       return useMutation(getPostApiAttendancesScanMutationOptions(options), queryClient);

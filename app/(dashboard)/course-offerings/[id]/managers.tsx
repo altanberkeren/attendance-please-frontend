@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Layers, Loader2, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type {
   CreateModuleCommand,
   EnrollmentDto,
@@ -224,6 +225,12 @@ export function SectionManager({
   );
 }
 
+function sortModules(modulesToSort: ModuleDto[]) {
+  return [...modulesToSort].sort(
+    (a, b) => Number(a.orderIndex) - Number(b.orderIndex),
+  );
+}
+
 export function ModuleManager({
   courseOfferingId,
   modules,
@@ -249,19 +256,24 @@ export function ModuleManager({
   onReorder: (modules: UpdateModuleCommand[]) => void;
   onDelete: (module: ModuleDto) => void;
 }) {
-  const sortedModules = [...modules].sort(
-    (a, b) => Number(a.orderIndex) - Number(b.orderIndex),
-  );
+  const [orderedModules, setOrderedModules] = useState<ModuleDto[]>(() => sortModules(modules));
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [bulkCount, setBulkCount] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [hiddenDraggingId, setHiddenDraggingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<{
     id: string;
     position: "before" | "after";
   } | null>(null);
+
+  useEffect(() => {
+    setOrderedModules(sortModules(modules));
+  }, [modules]);
+
+  const sortedModules = orderedModules;
 
   function sessionCount(module: ModuleDto) {
     return sessions.filter((session) => String(session.moduleId) === String(module.id)).length;
@@ -322,6 +334,7 @@ export function ModuleManager({
 
   function clearDragState() {
     setDraggingId(null);
+    setHiddenDraggingId(null);
     setDragOver(null);
   }
 
@@ -354,18 +367,12 @@ export function ModuleManager({
 
     reordered.splice(position === "before" ? targetIndex : targetIndex + 1, 0, moved);
 
-    const updates = reordered
-      .map((module, index) => ({
-        id: module.id,
-        title: module.title,
+    setOrderedModules(
+      reordered.map((module, index) => ({
+        ...module,
         orderIndex: index + 1,
-      }))
-      .filter((module) => {
-        const original = sortedModules.find((candidate) => String(candidate.id) === String(module.id));
-        return original && Number(original.orderIndex) !== Number(module.orderIndex);
-      });
-
-    if (updates.length > 0) onReorder(updates);
+      })),
+    );
     clearDragState();
   }
 
@@ -373,7 +380,14 @@ export function ModuleManager({
     const draggedModule = sortedModules.find((module) => String(module.id) === draggingId);
     if (!draggedModule || dragOver?.id !== String(targetId) || dragOver.position !== position) return null;
     return (
-      <li className="pointer-events-none rounded-xl border border-primary/40 bg-primary/10 p-3 text-primary shadow-sm">
+      <li
+        className="rounded-xl border border-primary/40 bg-primary/10 p-3 text-primary shadow-sm"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          reorderModules(targetId, position);
+        }}
+      >
         <div className="flex items-center gap-3 opacity-80">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-bold tabular-nums">
             ↕
@@ -386,6 +400,27 @@ export function ModuleManager({
       </li>
     );
   }
+
+  function getOrderUpdates() {
+    return sortedModules
+      .map((module, index) => ({
+        id: module.id,
+        title: module.title,
+        orderIndex: index + 1,
+      }))
+      .filter((module) => {
+        const original = modules.find((candidate) => String(candidate.id) === String(module.id));
+        return original && Number(original.orderIndex) !== Number(module.orderIndex);
+      });
+  }
+
+  function saveOrder() {
+    const updates = getOrderUpdates();
+    if (updates.length > 0) onReorder(updates);
+  }
+
+  const orderUpdates = getOrderUpdates();
+  const hasOrderChanges = orderUpdates.length > 0;
 
   const addRow = canManage && isAdding ? (
     <li className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-3">
@@ -443,6 +478,9 @@ export function ModuleManager({
                   Auto-create
                 </Button>
               </div>
+              <Button size="sm" variant="outline" onClick={saveOrder} disabled={pending || !hasOrderChanges}>
+                Save order
+              </Button>
               <Button size="sm" onClick={beginAdd} disabled={pending || isAdding}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Module
@@ -480,11 +518,11 @@ export function ModuleManager({
             ) : null}
           />
         ) : (
-          <ul className="grid gap-2">
+          <ul className="relative grid gap-2">
             {sortedModules.map((module, index) => {
               const isEditing = editingId === String(module.id);
               const count = sessionCount(module);
-              const isDragging = draggingId === String(module.id);
+              const isDragging = hiddenDraggingId === String(module.id);
               return (
                 <Fragment key={String(module.id)}>
                   {renderDragPreview(module.id, "before")}
@@ -492,16 +530,23 @@ export function ModuleManager({
                     key={String(module.id)}
                     draggable={canManage && !pending}
                     onDragStart={(event) => {
+                      const id = String(module.id);
                       event.dataTransfer.effectAllowed = "move";
-                      setDraggingId(String(module.id));
+                      setDraggingId(id);
+                      requestAnimationFrame(() => setHiddenDraggingId(id));
                     }}
                     onDragEnd={clearDragState}
                     onDragOver={(event) => handleDragOver(event, module.id)}
-                    onDrop={() => reorderModules(module.id, dragOver?.position ?? "before")}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      const position = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+                      reorderModules(module.id, position);
+                    }}
                     className={cn(
                       "rounded-xl border bg-card p-3 transition-colors hover:bg-muted/20",
                       canManage && "cursor-grab active:cursor-grabbing",
-                      isDragging && "h-0 overflow-hidden border-0 p-0 opacity-0",
+                      isDragging && "absolute h-0 w-0 overflow-hidden border-0 p-0 opacity-0 pointer-events-none",
                       dragOver?.id === String(module.id) && !isDragging && "border-primary/30",
                     )}
                   >
@@ -529,7 +574,7 @@ export function ModuleManager({
                           >
                             {module.title}
                           </button>
-                          <p className="mt-1 text-xs text-muted-foreground">
+                          <p className={cn("mt-1 text-xs text-muted-foreground", count > 0 && "text-white")}>
                             {count} session{count !== 1 ? "s" : ""}
                           </p>
                         </>
@@ -546,25 +591,41 @@ export function ModuleManager({
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        <Button
-                          size="icon-xs"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive"
-                          disabled={pending || count > 0}
-                          onClick={() => onDelete(module)}
-                          aria-label={`Delete ${module.title}`}
-                          title={count > 0 ? "Modules with sessions cannot be deleted from the UI." : "Delete module"}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {count > 0 ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex">
+                                <Button
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  disabled
+                                  aria-label={`Delete ${module.title}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="end" className="max-w-64 text-center">
+                              Delete is disabled to protect existing attendance data.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            disabled={pending}
+                            onClick={() => onDelete(module)}
+                            aria-label={`Delete ${module.title}`}
+                            title="Delete module"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     ) : null}
                   </div>
-                  {count > 0 ? (
-                    <p className="mt-2 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-300">
-                      This module already has attendance sessions; delete is disabled to protect attendance data.
-                    </p>
-                  ) : null}
                   </li>
                   {renderDragPreview(module.id, "after")}
                 </Fragment>

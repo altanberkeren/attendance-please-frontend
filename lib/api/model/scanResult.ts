@@ -9,5 +9,7 @@ export interface ScanResult {
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   attendanceId: number | string;
   sectionSwitched: boolean;
+  alreadyRecorded: boolean;
+  success: boolean;
   message: string;
 }
