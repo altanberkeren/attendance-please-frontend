@@ -7,4 +7,8 @@
 
 export interface StudentScanAttendanceRequest {
   token: string;
+  /** @nullable */
+  studentLatitude?: number | null;
+  /** @nullable */
+  studentLongitude?: number | null;
 }

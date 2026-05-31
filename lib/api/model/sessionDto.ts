@@ -29,4 +29,10 @@ export interface SessionDto {
   /** @nullable */
   closedAt: string | null;
   createdAt: string;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
+  /** @nullable */
+  radiusMeters?: number | null;
 }

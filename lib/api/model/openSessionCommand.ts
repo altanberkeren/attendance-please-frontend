@@ -17,4 +17,10 @@ export interface OpenSessionCommand {
   selectedMethod: AttendanceMethod;
   /** @pattern ^-?(?:0|[1-9]\d*)$ */
   openedByUserId: number | string;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
+  /** @nullable */
+  radiusMeters?: number | null;
 }

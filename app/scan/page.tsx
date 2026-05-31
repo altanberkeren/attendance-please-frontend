@@ -6,6 +6,7 @@ import {
   Clock3,
   Loader2,
   LockKeyhole,
+  MapPin,
   QrCode,
   ShieldCheck,
   UserRound,
@@ -96,6 +97,8 @@ export default function ScanPage() {
   const { isAuthenticated, isReady, isExchanging, signIn, user } = useAuth();
   const [message, setMessage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<"idle" | "getting" | "ok" | "failed">("idle");
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const returnTo = useMemo(() => {
     const query = searchParams.toString();
@@ -144,8 +147,37 @@ export default function ScanPage() {
       return;
     }
 
+    // Try to get GPS location (best-effort, not blocking)
+    let studentLatitude: number | null = null;
+    let studentLongitude: number | null = null;
+
+    if (navigator.geolocation) {
+      setGpsStatus("getting");
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+          }),
+        );
+        studentLatitude = position.coords.latitude;
+        studentLongitude = position.coords.longitude;
+        setGpsCoords({ lat: studentLatitude, lng: studentLongitude });
+        setGpsStatus("ok");
+      } catch {
+        setGpsStatus("failed");
+        // Continue without GPS — the backend will decide whether to reject
+      }
+    }
+
     try {
-      const result = await scanMutation.mutateAsync({ data: { token } });
+      const result = await scanMutation.mutateAsync({
+        data: {
+          token,
+          studentLatitude,
+          studentLongitude,
+        },
+      });
       setSubmitted(result.success);
       setMessage(result.message || "Attendance submitted successfully.");
     } catch (error) {
@@ -276,6 +308,37 @@ export default function ScanPage() {
                     ? "Everything is ready. Sign now to record your attendance."
                     : "Complete the previous steps before signing attendance."}
               </p>
+
+              {/* GPS status indicator */}
+              {canSign && !attendanceDone && (
+                <div className="flex items-center gap-2 text-xs">
+                  {gpsStatus === "idle" && (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Location will be captured when you sign
+                    </span>
+                  )}
+                  {gpsStatus === "getting" && (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Getting your location...
+                    </span>
+                  )}
+                  {gpsStatus === "ok" && gpsCoords && (
+                    <span className="flex items-center gap-1.5 text-primary">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Location captured ({gpsCoords.lat.toFixed(4)}, {gpsCoords.lng.toFixed(4)})
+                    </span>
+                  )}
+                  {gpsStatus === "failed" && (
+                    <span className="flex items-center gap-1.5 text-amber-500">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Location unavailable — attendance may be restricted
+                    </span>
+                  )}
+                </div>
+              )}
+
               <Button
                 className="w-full gap-2"
                 onClick={() => void handleSign()}

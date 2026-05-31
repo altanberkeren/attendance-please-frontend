@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
+  MapPin,
   Nfc,
   QrCode,
   RefreshCw,
@@ -17,6 +18,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
 import { useCallback, useEffect, useState } from "react";
 import { AttendanceRoster } from "@/components/attendance-roster";
+import { LocationMapStatic } from "@/components/gps/location-map-static";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -270,6 +272,21 @@ function SessionDetail({
               </div>
             ))}
           </div>
+
+          {/* GPS location verification info */}
+          {session.latitude != null && session.longitude != null && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                GPS Verification Enabled
+              </div>
+              <LocationMapStatic
+                latitude={session.latitude}
+                longitude={session.longitude}
+                radiusMeters={session.radiusMeters}
+              />
+            </div>
+          )}
 
           {!isLoading && total > 0 && (
             <div className="flex flex-wrap items-center gap-2 pt-1">

@@ -9,6 +9,7 @@ import {
   Circle,
   ExternalLink,
   Loader2,
+  MapPin,
   Nfc,
   Pencil,
   QrCode,
@@ -23,6 +24,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AttendanceRoster } from "@/components/attendance-roster";
+import { LocationMapPicker } from "@/components/gps/location-map-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,6 +116,10 @@ interface Selection {
   sectionId: number | string | null;
   moduleId: number | string | null;
   method: MethodId | null;
+  gpsEnabled: boolean;
+  gpsLatitude: number | null;
+  gpsLongitude: number | null;
+  gpsRadiusMeters: number;
 }
 
 // ── Hook: elapsed timer ───────────────────────────────────────────────────────
@@ -573,6 +579,49 @@ function MethodStep({
           );
         })}
       </div>
+
+      {/* GPS verification toggle */}
+      <div className="rounded-xl border p-4 space-y-3">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={sel.gpsEnabled}
+            onChange={(e) =>
+              setSel({
+                ...sel,
+                gpsEnabled: e.target.checked,
+                gpsLatitude: e.target.checked ? sel.gpsLatitude : null,
+                gpsLongitude: e.target.checked ? sel.gpsLongitude : null,
+              })
+            }
+            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <div>
+            <span className="text-sm font-semibold flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-primary" />
+              GPS Location Verification
+            </span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Require students to be within a radius of the classroom to check in.
+            </p>
+          </div>
+        </label>
+
+        {sel.gpsEnabled && (
+          <LocationMapPicker
+            latitude={sel.gpsLatitude}
+            longitude={sel.gpsLongitude}
+            radiusMeters={sel.gpsRadiusMeters}
+            onLocationChange={(lat, lng) =>
+              setSel({ ...sel, gpsLatitude: lat, gpsLongitude: lng })
+            }
+            onRadiusChange={(radius) =>
+              setSel({ ...sel, gpsRadiusMeters: radius })
+            }
+          />
+        )}
+      </div>
+
       <div className="flex items-center justify-between pt-2">
         <Button variant="ghost" onClick={onBack} className="gap-1.5">
           <ChevronLeft className="h-4 w-4" />
@@ -1073,6 +1122,10 @@ export default function AttendancePage() {
     sectionId: null,
     moduleId: null,
     method: null,
+    gpsEnabled: false,
+    gpsLatitude: null,
+    gpsLongitude: null,
+    gpsRadiusMeters: 100,
   });
   const [backendSessionId] = useState<number | string | null>(null);
   const [isOpening, setIsOpening] = useState(false);
@@ -1151,6 +1204,13 @@ export default function AttendancePage() {
           sectionId: sel.sectionId,
           selectedMethod: METHOD_MAP[sel.method],
           openedByUserId: openingUserId,
+          ...(sel.gpsEnabled && sel.gpsLatitude != null && sel.gpsLongitude != null
+            ? {
+                latitude: sel.gpsLatitude,
+                longitude: sel.gpsLongitude,
+                radiusMeters: sel.gpsRadiusMeters,
+              }
+            : {}),
         },
       });
       router.push(`/sessions/detail?id=${encodeURIComponent(String(session.id))}&courseOfferingId=${encodeURIComponent(String(sel.courseId))}`);
